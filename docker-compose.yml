@@ -1,9 +1,8 @@
 services:
   freqtrade:
-    image: freqtradeorg/freqtrade:stable
     build:
       context: .
-      dockerfile: ./docker/Dockerfile.custom
+      dockerfile: ./docker/Dockerfile.prod
     container_name: ${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
     restart: unless-stopped
     ports:
