@@ -1,36 +1,24 @@
----
-
-x-common-settings:
-  &common-settings
-  image: freqtradeorg/freqtrade:stable
-  build:
-    context: .
-    dockerfile: "./docker/Dockerfile.custom"
-  restart: unless-stopped
-  volumes:
-    - "freqtrade_userdata:/freqtrade/user_data"
-    - "./configs:/freqtrade/configs"
-    - "./${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py:/freqtrade/${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py"
-  healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
-    interval: 1m30s
-    timeout: 10s
-    retries: 3
-    start_period: 40s
-    start_interval: 5s
-  env_file:
-    - path: .env
-      required: false # default true
-
 services:
-
   freqtrade:
-    <<: *common-settings
+    image: freqtradeorg/freqtrade:stable
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.custom
     container_name: ${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
+    restart: unless-stopped
     ports:
       - "${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
-    # Default command used when running `docker compose up`
-    # Configs are loaded explicitly so the named volume can start empty.
+    volumes:
+      - "freqtrade_userdata:/freqtrade/user_data"
+      - "./configs:/freqtrade/configs"
+      - "./${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py:/freqtrade/${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Configs loaded explicitly so the named volume can start empty.
     command: >
       trade
       -c configs/exampleconfig.json
