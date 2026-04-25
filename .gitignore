@@ -165,3 +165,4 @@ config*.json
 *.sqlite-shm
 *.sqlite-wal
 .env**
+!.env.example
