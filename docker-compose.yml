@@ -9,11 +9,9 @@ services:
     ports:
       - "${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
     volumes:
+      # Configs and strategy are baked into the image (see docker/Dockerfile.custom)
+      # because Coolify doesn't honor relative bind-mounts at runtime.
       - "freqtrade_userdata:/freqtrade/user_data"
-      - "./configs:/freqtrade/configs"
-      # Strategy filename is hardcoded because Coolify blocks ${...} in volume sources.
-      # To switch strategies, change FREQTRADE__STRATEGY env var AND edit the line below.
-      - "./NostalgiaForInfinityX7.py:/freqtrade/NostalgiaForInfinityX7.py"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
       interval: 90s
