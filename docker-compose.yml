@@ -11,7 +11,9 @@ services:
     volumes:
       - "freqtrade_userdata:/freqtrade/user_data"
       - "./configs:/freqtrade/configs"
-      - "./${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py:/freqtrade/${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py"
+      # Strategy filename is hardcoded because Coolify blocks ${...} in volume sources.
+      # To switch strategies, change FREQTRADE__STRATEGY env var AND edit the line below.
+      - "./NostalgiaForInfinityX7.py:/freqtrade/NostalgiaForInfinityX7.py"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
       interval: 90s
