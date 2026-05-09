@@ -5,14 +5,22 @@ services:
       dockerfile: ./docker/Dockerfile.prod
     container_name: ${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - "${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
+      - "127.0.0.1:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
     volumes:
       # Configs and strategy are baked into the image (see docker/Dockerfile.custom)
       # because Coolify doesn't honor relative bind-mounts at runtime.
       - "freqtrade_userdata:/freqtrade/user_data"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}",
+        ]
       interval: 90s
       timeout: 10s
       retries: 3
