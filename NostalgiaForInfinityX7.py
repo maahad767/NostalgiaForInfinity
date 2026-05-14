@@ -45,7 +45,7 @@ warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 ##   BTC: bc1qvflsvddkmxh7eqhc4jyu5z5k6xcw3ay8jl49sk                                                       ##
 ##   ETH (ERC20): 0x83D3cFb8001BDC5d2211cBeBB8cB3461E5f7Ec91                                               ##
 ##   BEP20/BSC (USDT, ETH, BNB, ...): 0x86A0B21a20b39d16424B7c8003E4A7e12d78ABEe                           ##
-##   TRC20/TRON (USDT, TRON, ...): TTAa9MX7zMLXNgWMhg7tkNormVHWCoq8Xk                                      ##
+##   TRC20/TRON (USDT, TRON, ...): TTAa9MX6zMLXNgWMhg7tkNormVHWCoq8Xk                                      ##
 ##                                                                                                         ##
 ##  Patreon: https://www.patreon.com/iterativ                                                              ##
 ##                                                                                                         ##
@@ -57,8 +57,9 @@ warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 ##  OKX: https://www.okx.com/join/11749725931 (20% discount on trading fees)                               ##
 ##  MEXC: https://promote.mexc.com/b/nfinfinity (10% discount on trading fees)                             ##
 ##  ByBit: https://partner.bybit.com/b/nfi                                                                 ##
-##  Bitget: https://bonus.bitget.com/fdqe83481698435803831 (lifetime 20% +10% extra spot rebate)           ##
-##  BitMart: https://www.bitmart.com/invite/nfinfinity/en-US (20% lifetime discount on trading fees)       ##
+##  Bitget: https://bonus.bitget.com/nfinfinity (lifetime 20% +10% extra spot rebate)                      ##
+##  Kraken: https://proinvite.kraken.com/9f1e/cctimhte                                                     ##
+##  BitMart: https://www.bitmart.com/invite/nfinfinity (20% lifetime discount on trading fees)             ##
 ##  HTX: https://www.htx.com/invite/en-us/1f?invite_code=ubpt2223                                          ##
 ##         (Welcome Bonus worth 241 USDT upon completion of a deposit and trade)                           ##
 ##  Bitvavo: https://bitvavo.com/invite?a=D22103A4BC (no fees for the first € 10000)                       ##
@@ -69,7 +70,7 @@ class NostalgiaForInfinityX7(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v17.4.69"
+    return "v17.4.81"
 
   stoploss = -0.99
 
@@ -23223,7 +23224,7 @@ class NostalgiaForInfinityX7(IStrategy):
             # 4h down move, 4h still high, 1d downtrend
             & ((df["RSI_3_4h"] > 50.0) | (df["RSI_14_4h"] < 40.0) | (df["ROC_9_1d"] > -30.0))
             # 4h down move, 4h high & overbought
-            & ((df["RSI_3_4h"] > 50.0) | (df["AROONU_14_4h"] < 85.0) | (df["ROC_9_4h"] < 10.0))
+            & ((df["RSI_3_4h"] > 50.0) | (df["AROONU_14_4h"] < 70.0) | (df["ROC_9_4h"] < 10.0))
             # 4h down move, 15m still high, 1d overbought
             & ((df["RSI_3_4h"] > 55.0) | (df["AROONU_14_15m"] < 40.0) | (df["ROC_9_1d"] < 100.0))
             # 4h & 1d down move, 4h high, 1d overbought
@@ -47448,13 +47449,14 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["RSI_3_1h"] > 15.0)
         and (last_candle["RSI_3_4h"] > 15.0)
         and (last_candle["RSI_14"] < 45.0)
-        and (last_candle["AROONU_14"] < 20.0)
+        and (last_candle["AROONU_14"] < 25.0)
+        and (last_candle["AROONU_14_4h"] < 100.0)
         and (last_candle["close"] > (last_candle["close_max_48"] * 0.90))
         and (last_candle["close"] < (last_candle["low_min_24_4h"] * 1.60))
         and (last_candle["close"] < (last_candle["EMA_16"] * 0.980))
       )
       or (
-        (last_candle["RSI_3"] > 5.0)
+        (last_candle["RSI_3"] > 10.0)
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 15.0)
         and (last_candle["RSI_3_4h"] > 15.0)
@@ -47466,48 +47468,48 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["close"] < (last_candle["BBL_20_2.0"] * 1.010))
       )
       or (
-        (last_candle["RSI_14"] < 36.0)
-        and (last_candle["RSI_3"] > 10.0)
+        (last_candle["RSI_3"] > 10.0)
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 15.0)
+        and (last_candle["RSI_14"] < 35.0)
         and (last_candle["AROONU_14_15m"] < 25.0)
+        and (last_candle["ROC_9_1h"] > -20.0)
+        and (last_candle["ROC_9_4h"] > -20.0)
         and (last_candle["close"] > (last_candle["close_max_48"] * 0.90))
         and (last_candle["close"] < (last_candle["EMA_12"] * 0.980))
       )
       or (
-        (last_candle["RSI_14"] < 36.0)
-        and (last_candle["RSI_3"] > 10.0)
+        (last_candle["RSI_3"] > 10.0)
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 10.0)
         and (last_candle["RSI_3_1d"] > 10.0)
+        and (last_candle["RSI_14"] < 35.0)
         and (last_candle["AROONU_14"] < 25.0)
         and (last_candle["close"] > (last_candle["close_max_48"] * 0.90))
-        and (last_candle["close"] < (last_candle["EMA_26"] * 0.975))
+        and (last_candle["close"] < (last_candle["EMA_26"] * 0.970))
         and (last_candle["close"] < (last_candle["BBL_20_2.0"] * 0.999))
       )
       or (
-        (last_candle["RSI_14"] < 35.0)
-        and (last_candle["RSI_3"] > 10.0)
+        (last_candle["RSI_3"] > 10.0)
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 10.0)
+        and (last_candle["RSI_14"] < 35.0)
         and (last_candle["AROONU_14"] < 25.0)
         and (last_candle["ROC_9_4h"] > -20.0)
-        and (last_candle["close"] < (last_candle["low_min_12_4h"] * 1.30))
+        and (last_candle["close"] < (last_candle["low_min_12_4h"] * 1.50))
         and (last_candle["close"] < (last_candle["EMA_9"] * 0.975))
         and (last_candle["close"] < (last_candle["EMA_20"] * 0.970))
       )
       or (
-        (last_candle["RSI_14"] > 35.0)
-        and (last_candle["RSI_3"] > 10.0)
+        (last_candle["RSI_3"] > 10.0)
         and (last_candle["RSI_3"] < 40.0)
         and (last_candle["RSI_3_15m"] > 15.0)
-        and (last_candle["ROC_2_1h"] > -10.0)
-        and (last_candle["ROC_2_4h"] > -10.0)
-        and (last_candle["ROC_9_1h"] > -10.0)
-        and (last_candle["ROC_9_4h"] > -10.0)
+        and (last_candle["RSI_14"] > 35.0)
+        and (last_candle["ROC_9_1h"] > -20.0)
+        and (last_candle["ROC_9_4h"] > -20.0)
         and (last_candle["AROONU_14"] < 25.0)
         and (last_candle["close"] < (last_candle["low_min_12_4h"] * 1.60))
         and (last_candle["RSI_20"] < previous_candle["RSI_20"])
@@ -47518,10 +47520,8 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 10.0)
-        and (last_candle["ROC_2_1h"] > -5.0)
-        and (last_candle["ROC_2_4h"] > -5.0)
-        and (last_candle["ROC_9_1h"] > -5.0)
-        and (last_candle["ROC_9_4h"] > -5.0)
+        and (last_candle["ROC_9_1h"] > -10.0)
+        and (last_candle["ROC_9_4h"] > -10.0)
         and (last_candle["WILLR_14"] < -50.0)
         and (last_candle["STOCHRSIk_14_14_3_3"] < 20.0)
         and (last_candle["WILLR_84_1h"] < -70.0)
@@ -47532,7 +47532,7 @@ class NostalgiaForInfinityX7(IStrategy):
       or (
         (last_candle["RSI_3"] < 30.0)
         and (last_candle["RSI_3"] > 5.0)
-        and (last_candle["RSI_3_15m"] > 5.0)
+        and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 10.0)
         and (last_candle["ROC_9_1h"] > -10.0)
@@ -47547,7 +47547,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["RSI_3_15m"] > 25.0)
         and (last_candle["RSI_3_1h"] > 30.0)
         and (last_candle["AROONU_14_4h"] < 70.0)
-        and (last_candle["STOCHRSIk_14_14_3_3"] < 50.0)
+        and (last_candle["STOCHRSIk_14_14_3_3"] < 80.0)
         and (last_candle["close"] < (last_candle["close_max_48"] * 0.90))
         and (last_candle["close"] > (last_candle["close_min_12"] * 1.08))
       )
@@ -47568,11 +47568,11 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["close"] < (last_candle["BBL_20_2.0"] * 0.999))
       )
       or (
-        (last_candle["RSI_14"] < 36.0)
-        and (last_candle["RSI_3"] > 5.0)
+        (last_candle["RSI_3"] > 5.0)
         and (last_candle["RSI_3_15m"] > 10.0)
         and (last_candle["RSI_3_1h"] > 10.0)
         and (last_candle["RSI_3_4h"] > 10.0)
+        and (last_candle["RSI_14"] < 35.0)
         and (last_candle["STOCHRSIk_14_14_3_3"] < 30.0)
         and (last_candle["close"] > (last_candle["close_max_48"] * 0.90))
         and (last_candle["close"] < (last_candle["low_min_12_4h"] * 1.60))
@@ -47607,14 +47607,14 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_candle["STOCHRSIk_14_14_3_3_15m"] < 30.0)
       )
       or (
-        (last_candle["RSI_14"] < 36.0)
-        and (last_candle["RSI_3"] > 5.0)
+        (last_candle["RSI_3"] > 5.0)
         and (last_candle["RSI_3_15m"] > 15.0)
         and (last_candle["RSI_3_1h"] > 15.0)
         and (last_candle["RSI_3_4h"] > 15.0)
+        and (last_candle["RSI_14"] < 35.0)
         and (last_candle["ROC_9_1h"] > -20.0)
         and (last_candle["ROC_9_4h"] > -25.0)
-        and (last_candle["close"] < (last_candle["EMA_12"] * 0.970))
+        and (last_candle["close"] < (last_candle["EMA_12"] * 0.965))
         and (last_candle["close"] < (last_candle["BBL_20_2.0"] * 0.999))
       )
       or (
