@@ -70,7 +70,7 @@ class NostalgiaForInfinityX7(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v17.4.131"
+    return "v17.4.132"
 
   stoploss = -0.99
 
@@ -2562,6 +2562,9 @@ class NostalgiaForInfinityX7(IStrategy):
     enter_tags = entry_tag.split()
     is_futures_mode = self.is_futures_mode
     system_name_use = self.system_name_use
+    system_name_is_v3 = system_name_use == system_v3_name
+    system_name_is_v3_1 = system_name_use == system_v3_1_name
+    system_name_is_v3_2 = system_name_use == system_v3_2_name
     grind_mode_stake_multiplier_futures = self.grind_mode_stake_multiplier_futures
     grind_mode_stake_multiplier_spot = self.grind_mode_stake_multiplier_spot
     rapid_mode_stake_multiplier_futures = self.rapid_mode_stake_multiplier_futures
@@ -2589,7 +2592,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return scaled_stake(system_v3_rebuy_mode_stake_multiplier)
       # Rapid mode
-      if (system_name_use == system_v3_name) and (
+      if system_name_is_v3 and (
         all(c in long_rapid_mode_tags for c in enter_tags)
         or (
           any(c in long_rapid_mode_tags for c in enter_tags)
@@ -2607,9 +2610,9 @@ class NostalgiaForInfinityX7(IStrategy):
       elif all(c in long_btc_mode_tags for c in enter_tags):
         return proposed_stake * grind_mode_stake_multipliers[0]
       else:
-        if system_name_use == system_v3_2_name:
+        if system_name_is_v3_2:
           return scaled_stake(system_v3_2_stake_multiplier)
-        elif system_name_use == system_v3_1_name:
+        elif system_name_is_v3_1:
           return scaled_stake(system_v3_1_stake_multiplier)
         else:
           return scaled_stake(regular_mode_stake_multipliers[0])
@@ -2627,7 +2630,7 @@ class NostalgiaForInfinityX7(IStrategy):
           if stake > min_stake:
             return stake
       # Rapid mode
-      if (system_name_use == system_v3_name) and (
+      if system_name_is_v3 and (
         all(c in short_rapid_mode_tags for c in enter_tags)
         or (
           any(c in short_rapid_mode_tags for c in enter_tags)
@@ -2636,9 +2639,9 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return scaled_stake(rapid_mode_stake_multipliers[0])
       else:
-        if system_name_use == system_v3_2_name:
+        if system_name_is_v3_2:
           return scaled_stake(system_v3_2_stake_multiplier)
-        elif system_name_use == system_v3_1_name:
+        elif system_name_is_v3_1:
           return scaled_stake(system_v3_1_stake_multiplier)
         else:
           return scaled_stake(regular_mode_stake_multipliers[0])
@@ -4491,7 +4494,8 @@ class NostalgiaForInfinityX7(IStrategy):
     # df["WILLR_480_1h"] = df["WILLR_480_1h"].astype(np.float64).replace(to_replace=[np.nan, None], value=(-50.0))
     # df["WILLR_480_4h"] = df["WILLR_480_4h"].astype(np.float64).replace(to_replace=[np.nan, None], value=(-50.0))
     # df["RSI_14_1d"] = df["RSI_14_1d"].astype(np.float64).replace(to_replace=[np.nan, None], value=(50.0))
-    df["RSI_14_1h"] = df["RSI_14_1h"].fillna(50.0)
+    rsi_14_1h = df["RSI_14_1h"].fillna(50.0)
+    df["RSI_14_1h"] = rsi_14_1h
 
     tok_before_protections = time.perf_counter()
 
@@ -4500,7 +4504,7 @@ class NostalgiaForInfinityX7(IStrategy):
     protection_rsi_3_1h = df["RSI_3_1h"].to_numpy(copy=False)
     protection_rsi_3_4h = df["RSI_3_4h"].to_numpy(copy=False)
     protection_rsi_3_1d = df["RSI_3_1d"].to_numpy(copy=False)
-    protection_rsi_14_1h = df["RSI_14_1h"].to_numpy(copy=False)
+    protection_rsi_14_1h = rsi_14_1h.to_numpy(copy=False)
     protection_rsi_14_4h = df["RSI_14_4h"].to_numpy(copy=False)
     protection_rsi_14_1d = df["RSI_14_1d"].to_numpy(copy=False)
     protection_cci_20_1h = df["CCI_20_1h"].to_numpy(copy=False)
@@ -12169,6 +12173,8 @@ class NostalgiaForInfinityX7(IStrategy):
 
     # Mode Validation
     entry_tags = entry_tag.split()
+    is_long_side = side == "long"
+    is_short_side = side == "short"
     long_grind_mode_tags = self.long_grind_mode_tags
     long_top_coins_mode_tags = self.long_top_coins_mode_tags
     long_scalp_mode_tags = self.long_scalp_mode_tags
@@ -12182,9 +12188,9 @@ class NostalgiaForInfinityX7(IStrategy):
     # Long/Short Slot Validation (only in futures mode)
     if self.is_futures_mode:
       max_side_trades = 0
-      if side == "long":
+      if is_long_side:
         max_side_trades = self.futures_max_open_trades_long
-      elif side == "short":
+      elif is_short_side:
         max_side_trades = self.futures_max_open_trades_short
 
       if max_side_trades != 0:
@@ -12203,9 +12209,9 @@ class NostalgiaForInfinityX7(IStrategy):
     if len(df) >= 1:
       last_candle = df.iloc[-1]
       last_close = last_candle["close"]
-      if (side == "long" and rate > last_close) or (side == "short" and rate < last_close):
+      if (is_long_side and rate > last_close) or (is_short_side and rate < last_close):
         slippage = (rate / last_close) - 1.0
-        if (side == "long" and slippage < max_slippage) or (side == "short" and slippage > -max_slippage):
+        if (is_long_side and slippage < max_slippage) or (is_short_side and slippage > -max_slippage):
           return True
         else:
           log.warning(f"[{current_time}] Cancelling entry for {pair} due to slippage {(slippage * 100.0):.2f}%")
@@ -12598,8 +12604,13 @@ class NostalgiaForInfinityX7(IStrategy):
     stochrsi_k_4h_lt_90 = stochrsi_k_4h < 90.0
     rsi_3 = df["RSI_3"]
     close = df["close"]
+    open_rate = df["open"]
     roc_9_15m = df["ROC_9_15m"]
     rsi_14_4h = df["RSI_14_4h"]
+    roc_2_1d = df["ROC_2_1d"]
+    uo_7_14_28_4h = df["UO_7_14_28_4h"]
+    willr_84_1h = df["WILLR_84_1h"]
+    mfi_14 = df["MFI_14"]
 
     # Reused entry Series and comparison masks
     aroond_14 = df["AROOND_14"]
@@ -12608,6 +12619,8 @@ class NostalgiaForInfinityX7(IStrategy):
     aroond_14_4h = df["AROOND_14_4h"]
     aroonu_14 = df["AROONU_14"]
     bbb_20_2_0_1h = df["BBB_20_2.0_1h"]
+    bbl_20_2_0 = df["BBL_20_2.0"]
+    bbu_20_2_0 = df["BBU_20_2.0"]
     cci_20_change_pct_1h = df["CCI_20_change_pct_1h"]
     cci_20_change_pct_4h = df["CCI_20_change_pct_4h"]
     change_pct_1d = df["change_pct_1d"]
@@ -12622,6 +12635,8 @@ class NostalgiaForInfinityX7(IStrategy):
     ema_12 = df["EMA_12"]
     ema_20 = df["EMA_20"]
     ema_26 = df["EMA_26"]
+    ema_200_1h = df["EMA_200_1h"]
+    ema_200_4h = df["EMA_200_4h"]
     ema_9 = df["EMA_9"]
     high_max_12_1d = df["high_max_12_1d"]
     high_max_12_4h = df["high_max_12_4h"]
@@ -12648,20 +12663,34 @@ class NostalgiaForInfinityX7(IStrategy):
     rsi_3_change_pct_4h = df["RSI_3_change_pct_4h"]
     rsi_4 = df["RSI_4"]
     sma_16 = df["SMA_16"]
+    sma_21 = df["SMA_21"]
     sma_200 = df["SMA_200"]
     stochrsi_k = df["STOCHRSIk_14_14_3_3"]
     top_wick_pct_1d = df["top_wick_pct_1d"]
     willr_14 = df["WILLR_14"]
-    aroonu_14_4h_lt_70 = aroonu_14_4h < 70.0
-    roc_9_1d_gt_neg_50 = roc_9_1d > -50.0
-    roc_9_1d_lt_50 = roc_9_1d < 50.0
+
     rsi_3_15m_gt_3 = rsi_3_15m > 3.0
-    rsi_3_1h_gt_20 = rsi_3_1h > 20.0
-    rsi_3_4h_gt_20 = rsi_3_4h > 20.0
     rsi_3_1h_gt_10 = rsi_3_1h > 10.0
     rsi_3_1h_gt_15 = rsi_3_1h > 15.0
+    rsi_3_1h_gt_20 = rsi_3_1h > 20.0
     rsi_3_4h_gt_10 = rsi_3_4h > 10.0
     rsi_3_4h_gt_15 = rsi_3_4h > 15.0
+    rsi_3_4h_gt_20 = rsi_3_4h > 20.0
+
+    aroonu_14_1h_lt_70 = aroonu_14_1h < 70.0
+    aroonu_14_1h_lt_80 = aroonu_14_1h < 80.0
+    aroonu_14_4h_lt_70 = aroonu_14_4h < 70.0
+    aroonu_14_4h_lt_80 = aroonu_14_4h < 80.0
+    aroonu_14_4h_lt_100 = aroonu_14_4h < 100.0
+    aroonu_14_1d_lt_100 = aroonu_14_1d < 100.0
+
+    roc_9_4h_gt_neg_20 = roc_9_4h > -20.0
+    roc_9_4h_lt_20 = roc_9_4h < 20.0
+    roc_9_1d_gt_neg_50 = roc_9_1d > -50.0
+    roc_9_1d_gt_neg_30 = roc_9_1d > -30.0
+    roc_9_1d_gt_neg_20 = roc_9_1d > -20.0
+    roc_9_1d_lt_50 = roc_9_1d < 50.0
+    roc_9_1d_lt_100 = roc_9_1d < 100.0
 
     is_backtest = self.dp.runmode.value in ["backtest", "hyperopt", "plot", "webserver"]
     # the number of free slots
@@ -12686,11 +12715,6 @@ class NostalgiaForInfinityX7(IStrategy):
     # if BTC/ETH stake
     is_btc_stake = config["stake_currency"] in self.btc_stakes
     allowed_empty_candles_288 = 144 if is_btc_stake else 60
-    aroonu_14_1d_lt_100 = aroonu_14_1d < 100.0
-    aroonu_14_1h_lt_70 = aroonu_14_1h < 70.0
-    aroonu_14_4h_lt_100 = aroonu_14_4h < 100.0
-    aroonu_14_1h_lt_80 = aroonu_14_1h < 80.0
-    aroonu_14_4h_lt_80 = aroonu_14_4h < 80.0
 
     ###############################################################################################
 
@@ -12708,12 +12732,6 @@ class NostalgiaForInfinityX7(IStrategy):
     # | $$$$$$$|  $$$$$$| $$ \  $|  $$$$$$/      | $$$$$$$| $$ \  $$  | $$  | $$$$$$$| $$  | $$
     # |________/\______/|__/  \__/\______/       |________|__/  \__/  |__/  |________|__/  |__/
     #
-
-    roc_9_1d_gt_neg_20 = roc_9_1d > -20.0
-    roc_9_4h_lt_20 = roc_9_4h < 20.0
-    roc_9_1d_lt_100 = roc_9_1d < 100.0
-    roc_9_1d_gt_neg_30 = roc_9_1d > -30.0
-    roc_9_4h_gt_neg_20 = roc_9_4h > -20.0
 
     for enabled_long_entry_signal in long_entry_signal_params:
       long_entry_condition_index = int(enabled_long_entry_signal.rsplit("_", 2)[1])
@@ -13115,9 +13133,9 @@ class NostalgiaForInfinityX7(IStrategy):
           # Logic
           long_entry_logic.append(
             (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.034))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
-            & (close < (df["BBL_20_2.0"] * 0.999))
+            & ((ema_26 - ema_12) > (open_rate * 0.034))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
+            & (close < (bbl_20_2_0 * 0.999))
           )
 
         # Condition #2 - Normal mode (Long).
@@ -15136,8 +15154,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & (aroonu_14 < 25.0)
             & (stochrsi_k < 30.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.020))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.020))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
           )
 
         # Condition #6 - Normal mode (Long).
@@ -15463,6 +15481,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & ((rsi_3_15m > 20.0) | (stochrsi_k_4h < 70.0) | (cmf_20_15m > -0.40))
             # 15m & 1h down move, 15m high
             & ((rsi_3_15m > 25.0) | (rsi_3_1h > 25.0) | (stochrsi_k_15m < 70.0))
+            # 15m & 1h & 4h down move, 4h high
+            & ((rsi_3_15m > 25.0) | (rsi_3_1h > 30.0) | (rsi_3_4h > 50.0) | aroonu_14_4h_lt_70)
             # 15m & 1h down move, 1h still high
             & ((rsi_3_15m > 25.0) | (rsi_3_1h > 35.0) | (stochrsi_k_1h_lt_50))
             # 15m & 1h down move, 1d high
@@ -17278,7 +17298,7 @@ class NostalgiaForInfinityX7(IStrategy):
           long_entry_logic.append(
             (willr_14 < -50.0)
             & (stochrsi_k < 20.0)
-            & (df["WILLR_84_1h"] < -70.0)
+            & (willr_84_1h < -70.0)
             & (stochrsi_k_1h < 20.0)
             & (bbb_20_2_0_1h > 16.0)
             & (close_max_48 >= (close * 1.10))
@@ -17790,13 +17810,13 @@ class NostalgiaForInfinityX7(IStrategy):
           # Logic
           long_entry_logic.append(
             (rsi_14 < 40.0)
-            & (df["MFI_14"] < 40.0)
+            & (mfi_14 < 40.0)
             & (aroonu_14 < 25.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.024))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.024))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
             & (close < (ema_20 * 0.960))
-            & (close < (df["BBL_20_2.0"] * 0.999))
+            & (close < (bbl_20_2_0 * 0.999))
           )
 
         # Condition #44 - Quick mode (Long).
@@ -18633,7 +18653,7 @@ class NostalgiaForInfinityX7(IStrategy):
           long_entry_logic.append(df["WILLR_14_15m"] < -50.0)
           long_entry_logic.append(aroonu_14_15m < 25.0)
           long_entry_logic.append(stochrsi_k_15m < 20.0)
-          long_entry_logic.append(df["WILLR_84_1h"] < -70.0)
+          long_entry_logic.append(willr_84_1h < -70.0)
           long_entry_logic.append(stochrsi_k_1h < 20.0)
           long_entry_logic.append(bbb_20_2_0_1h > 12.0)
           long_entry_logic.append(close_max_48 >= (close * 1.10))
@@ -18975,8 +18995,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & (aroonu_14 < 25.0)
             & (stochrsi_k < 30.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.030))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.030))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
           )
 
         # Condition #62 - Rebuy mode (Long).
@@ -19324,7 +19344,7 @@ class NostalgiaForInfinityX7(IStrategy):
             & (aroonu_14 < 30.0)
             & (stochrsi_k < 20.0)
             & (stochrsi_k_15m < 70.0)
-            & (df["WILLR_84_1h"] < -70.0)
+            & (willr_84_1h < -70.0)
             & (stochrsi_k_1h < 30.0)
             & (bbb_20_2_0_1h > 12.0)
             & (close_max_48 >= (close * 1.10))
@@ -19826,8 +19846,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & (rsi_3 < 50.0)
             & (aroonu_14 < 25.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.022))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.022))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
           )
 
         # Condition #101 - Rapid mode (Long).
@@ -20484,7 +20504,7 @@ class NostalgiaForInfinityX7(IStrategy):
           # Logic
           long_entry_logic.append(willr_14 < -95.0)
           long_entry_logic.append(stochrsi_k < 10.0)
-          long_entry_logic.append(close < (df["BBL_20_2.0"] * 0.999))
+          long_entry_logic.append(close < (bbl_20_2_0 * 0.999))
           long_entry_logic.append(close < (ema_20 * 0.960))
 
         # Condition #103 - Rapid mode (Long).
@@ -21130,6 +21150,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & ((rsi_3_15m > 20.0) | (stochrsi_k_1h < 80.0) | (roc_9_1d_gt_neg_20))
             # 15m down move, 4h high, 1d downtrend
             & ((rsi_3_15m > 20.0) | (stochrsi_k_4h < 80.0) | (roc_9_1d_gt_neg_30))
+            # 15m & 1h & 4h down move, 4h high
+            & ((rsi_3_15m > 25.0) | (rsi_3_1h > 30.0) | (rsi_3_4h > 50.0) | aroonu_14_4h_lt_70)
             # 15m & 4h down move, 15m high
             & ((rsi_3_15m > 25.0) | (rsi_3_4h > 30.0) | (stochrsi_k_15m < 70.0))
             # 15m down move, 15m & 1h high
@@ -21537,6 +21559,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & ((rsi_3_15m > 20.0) | (stochrsi_k_1h < 80.0) | (roc_9_1d_gt_neg_20))
             # 15m down move, 1h high & overbought
             & ((rsi_3_15m > 20.0) | (stochrsi_k_1h < 90.0) | (roc_9_1h < 10.0))
+            # 15m & 1h & 4h down move, 4h high
+            & ((rsi_3_15m > 25.0) | (rsi_3_1h > 30.0) | (rsi_3_4h > 50.0) | aroonu_14_4h_lt_70)
             # 15m down move, 15m still high, 4h high
             & ((rsi_3_15m > 25.0) | (aroonu_14_15m < 50.0) | aroonu_14_4h_lt_80)
             # 15m & 4h down mve, 1h high
@@ -22001,8 +22025,8 @@ class NostalgiaForInfinityX7(IStrategy):
             (rsi_3 < 40.0)
             & (stochrsi_k < 20.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.020))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.020))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
           )
 
         # Condition #144 - Top Coins mode (Long).
@@ -22722,17 +22746,15 @@ class NostalgiaForInfinityX7(IStrategy):
           long_entry_logic.append(aroonu_14_15m < 90.0)
           long_entry_logic.append(stochrsi_k_15m < 90.0)
           long_entry_logic.append(
-            (df["SMA_21"].shift(1) < sma_200.shift(1).infer_objects(copy=False).fillna(value=np.nan))
+            (sma_21.shift(1) < sma_200.shift(1).infer_objects(copy=False).fillna(value=np.nan))
             & sma_200.shift(1).notna()
           )
+          long_entry_logic.append((sma_21 > sma_200.infer_objects(copy=False).fillna(value=np.nan)) & sma_200.notna())
           long_entry_logic.append(
-            (df["SMA_21"] > sma_200.infer_objects(copy=False).fillna(value=np.nan)) & sma_200.notna()
+            (close > ema_200_1h.infer_objects(copy=False).fillna(value=np.nan)) & ema_200_1h.notna()
           )
           long_entry_logic.append(
-            (close > df["EMA_200_1h"].infer_objects(copy=False).fillna(value=np.nan)) & df["EMA_200_1h"].notna()
-          )
-          long_entry_logic.append(
-            (close > df["EMA_200_4h"].infer_objects(copy=False).fillna(value=np.nan)) & df["EMA_200_4h"].notna()
+            (close > ema_200_4h.infer_objects(copy=False).fillna(value=np.nan)) & ema_200_4h.notna()
           )
           long_entry_logic.append(df["BBB_20_2.0"] > 1.5)
           long_entry_logic.append(bbb_20_2_0_1h > 6.0)
@@ -22922,8 +22944,8 @@ class NostalgiaForInfinityX7(IStrategy):
             & (aroond_14 > 75.0)
             & (stochrsi_k < 30.0)
             & (ema_26 > ema_12)
-            & ((ema_26 - ema_12) > (df["open"] * 0.030))
-            & ((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+            & ((ema_26 - ema_12) > (open_rate * 0.030))
+            & ((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
             & (close < df["SMA_9"])
           )
 
@@ -23519,7 +23541,7 @@ class NostalgiaForInfinityX7(IStrategy):
           # 1h up move, 4h low
           short_entry_logic.append((rsi_3_1h_lt_95) | (stochrsi_k_4h_gt_30))
           # 1h & 4h up move, 4h still not high enough
-          short_entry_logic.append((rsi_3_1h_lt_95) | (rsi_3_4h_lt_95) | (df["UO_7_14_28_4h"] > 60.0))
+          short_entry_logic.append((rsi_3_1h_lt_95) | (rsi_3_4h_lt_95) | (uo_7_14_28_4h > 60.0))
           # 1h & 4h up move, 4h still low
           short_entry_logic.append((rsi_3_1h_lt_95) | (rsi_3_4h_lt_85) | (stochrsi_k_4h_gt_50))
           # 1h & 4h up move, 4h uptrend
@@ -23633,9 +23655,9 @@ class NostalgiaForInfinityX7(IStrategy):
 
           # Logic
           short_entry_logic.append(ema_12 > ema_26)
-          short_entry_logic.append((ema_12 - ema_26) > (df["open"] * 0.030))
-          short_entry_logic.append((ema_12.shift() - ema_26.shift()) > (df["open"] / 100.0))
-          short_entry_logic.append(close > (df["BBU_20_2.0"] * 1.004))
+          short_entry_logic.append((ema_12 - ema_26) > (open_rate * 0.030))
+          short_entry_logic.append((ema_12.shift() - ema_26.shift()) > (open_rate / 100.0))
+          short_entry_logic.append(close > (bbu_20_2_0 * 1.004))
 
         # Condition #502 - Normal mode (Short).
         if short_entry_condition_index == 502:
@@ -23814,7 +23836,7 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append(aroond_14 < 25.0)
           short_entry_logic.append(stochrsi_k > 80.0)
           short_entry_logic.append(close > (ema_20 * 1.060))
-          short_entry_logic.append(close > (df["BBU_20_2.0"] * 0.995))
+          short_entry_logic.append(close > (bbu_20_2_0 * 0.995))
           short_entry_logic.append(aroond_14_15m < 25.0)
 
         # Condition #503 - Normal mode (Short).
@@ -23831,7 +23853,7 @@ class NostalgiaForInfinityX7(IStrategy):
           # 5m strong down move
           short_entry_logic.append((rsi_3 < 98.0) | (roc_9 < 50.0))
           # 5m down move, 4h still high
-          short_entry_logic.append((rsi_3_lt_90) | (df["MFI_14"] > 10.0) | (stochrsi_k_4h_gt_30))
+          short_entry_logic.append((rsi_3_lt_90) | (mfi_14 > 10.0) | (stochrsi_k_4h_gt_30))
           # 5m & 1h down move, 1h still high
           short_entry_logic.append((rsi_3_lt_90) | (rsi_3_1h_lt_90) | (stochrsi_k_1h_gt_70))
           # 5m down move, 4h downtrend, 1h still high
@@ -23895,7 +23917,7 @@ class NostalgiaForInfinityX7(IStrategy):
           # 15m strong down move
           short_entry_logic.append((rsi_3_15m_lt_90) | (mfi_14_15m < 85.0) | (aroond_14_15m < 25.0))
           # 14m down move, 4h still high
-          short_entry_logic.append((rsi_3_15m < 80.0) | (aroond_14_15m < 50.0) | (df["UO_7_14_28_4h"] > 50.0))
+          short_entry_logic.append((rsi_3_15m < 80.0) | (aroond_14_15m < 50.0) | (uo_7_14_28_4h > 50.0))
           # 15m down move, 1h stil high, 1d overbought
           short_entry_logic.append((rsi_3_15m_lt_85) | (aroond_14_1h < 25.0) | (roc_9_1d > -80.0))
           # 15m down move, 1h high, 1d overbought
@@ -23915,7 +23937,7 @@ class NostalgiaForInfinityX7(IStrategy):
           # 1h down move, 4h still high, 1d downtrend
           short_entry_logic.append((rsi_3_change_pct_1h > -65.0) | (stochrsi_k_4h_gt_30) | roc_9_1d_lt_50)
           # 4h & 1d down move, 1h still high
-          short_entry_logic.append((rsi_3_4h_lt_90) | (df["ROC_2_1d"] < 20.0) | (stochrsi_k_1h_gt_50))
+          short_entry_logic.append((rsi_3_4h_lt_90) | (roc_2_1d < 20.0) | (stochrsi_k_1h_gt_50))
           # 15m still high, 1h down move, 4h high
           short_entry_logic.append((aroond_14_15m < 50.0) | (rsi_3_change_pct_1h < 50.0) | (stochrsi_k_4h_gt_30))
           # 15m still high, 1h & 4h down move, 4h still high
@@ -23927,15 +23949,15 @@ class NostalgiaForInfinityX7(IStrategy):
           # 15m still high, 1h down move, 1d downtrend
           short_entry_logic.append((stochrsi_k_15m > 30.0) | (rsi_3_4h_lt_90) | roc_9_1d_lt_50)
           # 1h & 4h still high, 1d strong down move
-          short_entry_logic.append((stochrsi_k_1h_gt_50) | (df["UO_7_14_28_4h"] > 55.0) | (rsi_3_1d < 90.0))
+          short_entry_logic.append((stochrsi_k_1h_gt_50) | (uo_7_14_28_4h > 55.0) | (rsi_3_1d < 90.0))
           # 1h still high, 4h & 1d downtrend
           short_entry_logic.append((aroond_14_1h < 25.0) | (roc_9_4h_lt_20) | roc_9_1d_lt_50)
           # 4h moving down, 1d P&D
           short_entry_logic.append((roc_9_4h < 30.0) | (df["RSI_3_change_pct_1d"] < 50.0) | roc_9_1d_gt_neg_50)
           # 1d strong downtrend, 4h still high
-          short_entry_logic.append((df["ROC_2_1d"] < 20.0) | roc_9_1d_lt_50 | (stochrsi_k_4h_gt_70))
+          short_entry_logic.append((roc_2_1d < 20.0) | roc_9_1d_lt_50 | (stochrsi_k_4h_gt_70))
           # 1d P&D, 1d overbought
-          short_entry_logic.append((df["ROC_2_1d"] < 10.0) | roc_9_1d_gt_neg_50 | (stochrsi_k_1h > 5.0))
+          short_entry_logic.append((roc_2_1d < 10.0) | roc_9_1d_gt_neg_50 | (stochrsi_k_1h > 5.0))
           # 1h red, previous 1h green, 1h overbought
           short_entry_logic.append(
             (change_pct_1h < 1.0) | (change_pct_1h.shift(12) > -5.0) | (rsi_14_1h.shift(12) < 80.0)
@@ -24066,7 +24088,7 @@ class NostalgiaForInfinityX7(IStrategy):
             (rsi_3_1h_lt_90) | (rsi_3_change_pct_4h < 50.0) | (aroond_14_4h < 25.0) | (stochrsi_k_1d > 60.0)
           )
           # 1h down move, 1h still high, 1d going down
-          short_entry_logic.append((rsi_3_1h_lt_85) | (stochrsi_k_1h_gt_50) | (df["ROC_2_1d"] > -50.0))
+          short_entry_logic.append((rsi_3_1h_lt_85) | (stochrsi_k_1h_gt_50) | (roc_2_1d > -50.0))
           # 4h downtrend, 4h still high, 1d strong downtrend
           short_entry_logic.append((rsi_3_4h_lt_85) | (stochrsi_k_4h_gt_70) | (roc_9_1d < 60.0))
           # 15m down move, 1h strong down move, 1d overbought
@@ -24087,7 +24109,7 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append((roc_9_1h < 40.0) | (rsi_3_4h_lt_90) | roc_9_1d_lt_50)
           short_entry_logic.append((roc_9_4h > -200.0) | (rsi_14_4h > 20.0))
           # 4h down move, 1d P&D
-          short_entry_logic.append((roc_9_4h_lt_20) | (df["ROC_2_1d"] < 20.0) | roc_9_1d_gt_neg_50)
+          short_entry_logic.append((roc_9_4h_lt_20) | (roc_2_1d < 20.0) | roc_9_1d_gt_neg_50)
           # 1h P&D, 4h overbought
           short_entry_logic.append((change_pct_1h < 2.0) | (change_pct_1h.shift(12) > 2.0) | (rsi_14_4h > 20.0))
           # 1h P&D, 1d overbought
@@ -24251,7 +24273,7 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append(aroonu_14 > 75.0)
           short_entry_logic.append(aroond_14 < 25.0)
           short_entry_logic.append(stochrsi_k > 80.0)
-          short_entry_logic.append(df["WILLR_84_1h"] > -30.0)
+          short_entry_logic.append(willr_84_1h > -30.0)
           short_entry_logic.append(stochrsi_k_1h > 80.0)
           short_entry_logic.append(bbb_20_2_0_1h > 20.0)
           short_entry_logic.append(df["close_min_48"] <= (close * 0.90))
@@ -24285,9 +24307,7 @@ class NostalgiaForInfinityX7(IStrategy):
             (rsi_3_15m_lt_95) | (rsi_3_1h_lt_80) | (stochrsi_k_4h_gt_70) | (aroond_14_4h < 50.0)
           )
           # 15m & 1h down move, 4h still high, 4h downtrend
-          short_entry_logic.append(
-            (rsi_3_15m_lt_95) | (rsi_3_1h_lt_90) | (df["UO_7_14_28_4h"] > 60.0) | (roc_9_4h_lt_20)
-          )
+          short_entry_logic.append((rsi_3_15m_lt_95) | (rsi_3_1h_lt_90) | (uo_7_14_28_4h > 60.0) | (roc_9_4h_lt_20))
           # 15m & 1h down move, 1d strong downtrend
           short_entry_logic.append((rsi_3_15m_lt_95) | (rsi_3_1h_lt_90) | roc_9_1d_lt_50)
           # 15m & 4h down move, 4h still not low enough
@@ -24329,13 +24349,13 @@ class NostalgiaForInfinityX7(IStrategy):
 
           # Logic
           short_entry_logic.append(rsi_14 > 60.0)
-          short_entry_logic.append(df["MFI_14"] > 60.0)
+          short_entry_logic.append(mfi_14 > 60.0)
           short_entry_logic.append(aroond_14 < 25.0)
           short_entry_logic.append(ema_26 < ema_12)
-          short_entry_logic.append((ema_26 - ema_12) > (df["open"] * 0.024))
-          short_entry_logic.append((ema_26.shift() - ema_12.shift()) > (df["open"] / 100.0))
+          short_entry_logic.append((ema_26 - ema_12) > (open_rate * 0.024))
+          short_entry_logic.append((ema_26.shift() - ema_12.shift()) > (open_rate / 100.0))
           short_entry_logic.append(close < (ema_20 * 0.958))
-          short_entry_logic.append(close < (df["BBL_20_2.0"] * 0.992))
+          short_entry_logic.append(close < (bbl_20_2_0 * 0.992))
 
         # # Condition #620 - Grind mode (Short).
         # if short_entry_condition_index == 620:
@@ -24665,16 +24685,16 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append(aroond_14_15m < 90.0)
           short_entry_logic.append(stochrsi_k_15m > 10.0)
           if isinstance(sma_200.iloc[-1], np.float64):
-            short_entry_logic.append(df["SMA_21"].shift(1) > sma_200.shift(1))
-            short_entry_logic.append(df["SMA_21"] < sma_200)
+            short_entry_logic.append(sma_21.shift(1) > sma_200.shift(1))
+            short_entry_logic.append(sma_21 < sma_200)
           else:
             short_entry_logic.append(pd.Series([False]))
-          if isinstance(df["EMA_200_1h"].iloc[-1], np.float64):
-            short_entry_logic.append(close < df["EMA_200_1h"])
+          if isinstance(ema_200_1h.iloc[-1], np.float64):
+            short_entry_logic.append(close < ema_200_1h)
           else:
             short_entry_logic.append(pd.Series([False]))
-          if isinstance(df["EMA_200_4h"].iloc[-1], np.float64):
-            short_entry_logic.append(close < df["EMA_200_4h"])
+          if isinstance(ema_200_4h.iloc[-1], np.float64):
+            short_entry_logic.append(close < ema_200_4h)
           else:
             short_entry_logic.append(pd.Series([False]))
           short_entry_logic.append(bbb_20_2_0_1h > 4.0)
@@ -26955,11 +26975,18 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_14 = last_candle["RSI_14"]
     last_close = last_candle["close"]
     last_ema_200 = last_candle["EMA_200"]
+    last_ema_50 = last_candle["EMA_50"]
+    last_rsi_14_1h = last_candle["RSI_14_1h"]
     last_bbu_20 = last_candle["BBU_20_2.0"]
+    last_bbu_20_1h = last_candle["BBU_20_2.0_1h"]
     previous_1_close = previous_candle_1["close"]
     previous_1_bbu_20 = previous_candle_1["BBU_20_2.0"]
     previous_2_close = previous_candle_2["close"]
     previous_2_bbu_20 = previous_candle_2["BBU_20_2.0"]
+    previous_3_close = previous_candle_3["close"]
+    previous_3_bbu_20 = previous_candle_3["BBU_20_2.0"]
+    previous_4_close = previous_candle_4["close"]
+    previous_4_bbu_20 = previous_candle_4["BBU_20_2.0"]
 
     # Sell signal 1
     if (
@@ -26967,8 +26994,8 @@ class NostalgiaForInfinityX7(IStrategy):
       and (last_close > last_bbu_20)
       and (previous_1_close > previous_1_bbu_20)
       and (previous_2_close > previous_2_bbu_20)
-      and (previous_candle_3["close"] > previous_candle_3["BBU_20_2.0"])
-      and (previous_candle_4["close"] > previous_candle_4["BBU_20_2.0"])
+      and (previous_3_close > previous_3_bbu_20)
+      and (previous_4_close > previous_4_bbu_20)
     ):
       if last_close > last_ema_200:
         if current_profit > 0.01:
@@ -27001,7 +27028,7 @@ class NostalgiaForInfinityX7(IStrategy):
           return True, f"exit_{mode_name}_3_2_1"
 
     # Sell signal 4
-    elif (last_rsi_14 > 84.0) and (last_candle["RSI_14_1h"] > 80.0):
+    elif (last_rsi_14 > 84.0) and (last_rsi_14_1h > 80.0):
       if last_close > last_ema_200:
         if current_profit > 0.01:
           return True, f"exit_{mode_name}_4_1_1"
@@ -27010,7 +27037,7 @@ class NostalgiaForInfinityX7(IStrategy):
           return True, f"exit_{mode_name}_4_2_1"
 
     # Sell signal 6
-    elif (last_close < last_ema_200) and (last_close > last_candle["EMA_50"]) and (last_rsi_14 > 79.0):
+    elif (last_close < last_ema_200) and (last_close > last_ema_50) and (last_rsi_14 > 79.0):
       if current_profit > 0.01:
         return True, f"exit_{mode_name}_6_1"
 
@@ -27024,7 +27051,7 @@ class NostalgiaForInfinityX7(IStrategy):
     #       return True, f"exit_{mode_name}_7_2_1"
 
     # Sell signal 8
-    elif last_close > last_candle["BBU_20_2.0_1h"] * 1.14:
+    elif last_close > last_bbu_20_1h * 1.14:
       if last_close > last_ema_200:
         if current_profit > 0.01:
           return True, f"exit_{mode_name}_8_1_1"
@@ -28576,9 +28603,56 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_3_4h_lt_30 = last_rsi_3_4h < 30.0
 
     if 0.01 > current_profit >= 0.001:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_95 = last_rsi_3 > 95.0
+      last_rsi_3_gt_99 = last_rsi_3 > 99.0
+      last_rsi_3_gt_98 = last_rsi_3 > 98.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_14_gt_78 = last_rsi_14 > 78.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_14_lt_40 = last_rsi_14 < 40.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_gt_96 = last_rsi_3 > 96.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_stochrsi_k_gt_95 = last_stochrsi_k > 95.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_14_lt_38 = last_rsi_14 < 38.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
-        and (last_rsi_14 > 78.0)
+        and (last_rsi_14_gt_78)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
         and (last_kst_1h < last_ksts_9_1h)
@@ -28587,7 +28661,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_0_1"
       elif (
         (last_willr_14 > -1.0)
-        and (last_rsi_14 > 78.0)
+        and (last_rsi_14_gt_78)
         and (last_cmf_20_1h < -0.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
@@ -28598,31 +28672,31 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 99.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_0_3"
       elif (
         (last_willr_14 > -1.0)
-        and (last_rsi_14 > 78.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_rsi_14_gt_78)
+        and (last_stochrsi_k_gt_95)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_0_4"
-      elif (last_willr_14 > -1.0) and (last_rsi_14 > 78.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -1.0) and (last_rsi_14_gt_78) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_0_5"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_stochrsi_k > 95.0)
-        and (last_rsi_14 < 40.0)
+        (last_rsi_3_gt_95)
+        and (last_stochrsi_k_gt_95)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_6"
       elif (
         (last_rsi_14_lt_50)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
@@ -28638,7 +28712,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_0_8"
       elif (
         (last_willr_14 > -1.0)
-        and (last_rsi_3 > 99.0)
+        and (last_rsi_3_gt_99)
         and (last_change_pct_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
@@ -28652,7 +28726,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_10"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -28660,108 +28734,108 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_11"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_0_12"
-      elif (last_rsi_3 > 99.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_99) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_0_13"
-      elif (last_rsi_3 > 99.0) and (last_willr_14 > -1.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_99) and (last_willr_14 > -1.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_0_14"
-      elif (last_rsi_3 > 99.0) and (last_rsi_14 > 78.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_99) and (last_rsi_14_gt_78) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_0_15"
       elif (
-        (last_rsi_3 > 99.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_99)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_0_16"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -1.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_0_17"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 > 75.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14 > 75.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_0_18"
       elif (
-        (last_rsi_3 > 99.0)
-        and (last_rsi_14 > 78.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_99)
+        and (last_rsi_14_gt_78)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_0_19"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_0_20"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_0_21"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -1.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_22"
-      elif (last_rsi_3 > 98.0) and (last_willr_14 > -5.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_98) and (last_willr_14 > -5.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_0_23"
       elif (
-        (last_rsi_3 > 99.0)
-        and (last_rsi_14 > 78.0)
+        (last_rsi_3_gt_99)
+        and (last_rsi_14_gt_78)
         and (last_willr_14 > -5.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_0_24"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_25"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -1.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -1.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_0_26"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_0_27"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_0_28"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_0_29"
-      elif (last_rsi_3 > 99.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_99) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_0_30"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_0_31"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_0_32"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -1.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
@@ -28770,127 +28844,127 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_0_33"
       elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_0_34"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -5.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -5.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_0_35"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -1.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_36"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_37"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_0_38"
-      elif (last_rsi_3 > 99.0) and (last_willr_14 > -1.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_99) and (last_willr_14 > -1.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_0_39"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_0_40"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -5.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_41"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_0_42"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_0_43"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_44"
-      elif (last_rsi_3 > 96.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_96) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_0_45"
-      elif (last_rsi_3 > 98.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_98) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_0_46"
       elif (
-        (last_rsi_3 > 98.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_98)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_0_47"
       elif (
         (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 42.0)
+        and (last_rsi_14_lt_42)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_48"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_49"
       elif (last_rsi_3 > 80.0) and (last_willr_14 > -2.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_0_50"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 68.0) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_0_51"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14 > 62.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_0_52"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -5.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_53"
       elif (
         (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_0_54"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -12.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -28898,10 +28972,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_55"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
@@ -28914,7 +28988,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_57"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -28922,158 +28996,156 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_58"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_0_59"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 38.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_38)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_0_60"
-      elif (last_rsi_3 > 98.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_98) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_0_61"
       elif (
         (last_rsi_3 > 88.0)
         and (last_willr_14 > -1.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_0_62"
-      elif (
-        (last_rsi_3 > 98.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_98) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_0_63"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_64"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_0_65"
-      elif (last_rsi_3 > 84.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_84) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_0_66"
       elif (
         (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_0_67"
       elif (
         (last_rsi_3 > 86.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 25.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_0_68"
       elif (
         (last_rsi_3 > 97.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_0_69"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 38.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_38) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_0_70"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 42.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_42) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_0_71"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_0_72"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_0_73"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_74"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_75"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 48.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_48) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_0_76"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_44)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_77"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_0_78"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -1.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 94.0) and (last_willr_14 > -1.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_0_79"
       elif (
         (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_0_80"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_81"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_0_82"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_0_83"
-      elif (last_rsi_3 > 99.0) and (last_willr_14 > -1.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_99) and (last_willr_14 > -1.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_0_84"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -6.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_85"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -29081,24 +29153,24 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_86"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 42.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_42)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_87"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_0_88"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 < 38.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_lt_38)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
@@ -29106,288 +29178,342 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 94.0)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_0_90"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_91"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_0_92"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_93"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_0_94"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_0_95"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_96"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_0_97"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_rsi_3_15m > 74.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_98"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_0_99"
-      elif (last_rsi_3 > 99.0) and (last_rsi_14 > 78.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_99) and (last_rsi_14_gt_78) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_0_100"
       elif (
         (last_rsi_3 > 86.0)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_0_101"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_0_102"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_0_103"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_0_104"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_0_105"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_0_106"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_0_107"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_0_108"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_109"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_0_110"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 42.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_42)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_0_111"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -20.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_112"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -1.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_0_113"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_0_114"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_0_115"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_0_116"
-      elif (
-        (last_rsi_3 > 95.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_0_117"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_0_118"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_0_119"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_0_120"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_0_121"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 < 42.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_42) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_0_122"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -2.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_0_123"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_0_124"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_0_125"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_0_126"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_0_127"
-      elif (last_rsi_3 > 96.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_96) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_0_128"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_0_129"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_0_130"
-      elif (last_rsi_14 < 36.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 36.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_0_131"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_95)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_0_132"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_0_133"
     elif 0.02 > current_profit >= 0.01:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_gt_95 = last_rsi_3 > 95.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_14_lt_40 = last_rsi_14 < 40.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_rsi_3_gt_94 = last_rsi_3 > 94.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_98 = last_rsi_3 > 98.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -29410,7 +29536,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 99.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_1_3"
       elif (
@@ -29425,9 +29551,9 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (last_willr_14 > -2.0) and (last_rsi_14 > 72.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_1_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
@@ -29450,7 +29576,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_1_8"
       elif (
         (last_willr_14 > -2.0)
-        and (last_rsi_3 > 95.0)
+        and (last_rsi_3_gt_95)
         and (last_change_pct_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
@@ -29472,237 +29598,237 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_11"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_1_12"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_1_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_1_14"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14 > 75.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14 > 75.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_1_15"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_95)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_1_16"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_1_17"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_1_18"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14 > 72.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_1_19"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_1_20"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_1_21"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -2.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_22"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_1_23"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14 > 75.0)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_1_24"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_25"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_1_26"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_1_27"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_1_28"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_1_29"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_1_30"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_1_31"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_1_32"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -2.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_1_34"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -6.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_1_35"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -15.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_36"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_37"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -15.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -15.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_1_38"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -5.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -5.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_1_39"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_1_40"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_41"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -25.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_1_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_1_43"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_willr_14 > -5.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_44"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_94) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_1_45"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_1_46"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_86)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_1_47"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_48"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -4.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -4.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_1_50"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_1_51"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14 > 60.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_1_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_53"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_46)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_1_54"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_willr_14 > -14.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -29710,23 +29836,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_55"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_1_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 36.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_1_57"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -29734,158 +29860,156 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_1_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 40.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_40)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_1_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_1_61"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_1_62"
-      elif (
-        (last_rsi_3 > 68.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_68) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_1_63"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_64"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_1_65"
-      elif (last_rsi_3 > 82.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_82) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_1_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_42)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_1_67"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_1_68"
       elif (
         (last_rsi_3 > 96.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_1_69"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_1_70"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 64.0) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_1_71"
-      elif (last_rsi_3 > 78.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_78) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_1_72"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_1_73"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_74"
       elif (
         (last_rsi_3 > 96.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_75"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14_lt_50) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_50) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_1_76"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_77"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -16.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_1_78"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 92.0) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_1_79"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_1_80"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_81"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_1_82"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_1_83"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -2.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -2.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_1_84"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_85"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -29893,24 +30017,24 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_86"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_87"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -20.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_1_88"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 40.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
@@ -29918,288 +30042,341 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 92.0)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_1_90"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_91"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_1_92"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_93"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_1_94"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_1_95"
       elif (
         (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_96"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_1_97"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_15m > 72.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_98"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14 < 52.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_1_99"
-      elif (last_rsi_3 > 98.0) and (last_rsi_14 > 76.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_98) and (last_rsi_14 > 76.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_1_100"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_1_101"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_1_102"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_1_103"
       elif (
         (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_1_104"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_1_105"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_1_106"
       elif (
         (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_1_107"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_1_108"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_109"
-      elif (last_rsi_3 > 72.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_72) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_1_110"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_1_111"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -25.0)
         and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_112"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_1_113"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_1_114"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_1_115"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_1_116"
-      elif (
-        (last_rsi_3 > 86.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_1_117"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_1_118"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_1_119"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_1_120"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_1_121"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_1_122"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_1_123"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_1_124"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_1_125"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_1_126"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_1_127"
-      elif (last_rsi_3 > 94.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_1_128"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_1_129"
       elif (
         (last_rsi_3 > 74.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_1_130"
-      elif (last_rsi_14 < 38.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 38.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_1_131"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_1_132"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_1_133"
     elif 0.03 > current_profit >= 0.02:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_rsi_14_gt_70 = last_rsi_14 > 70.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_64 = last_rsi_3 > 64.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -30222,7 +30399,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 99.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_2_3"
       elif (
@@ -30234,10 +30411,10 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_2_4"
-      elif (last_willr_14 > -4.0) and (last_rsi_14 > 70.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -4.0) and (last_rsi_14_gt_70) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_2_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -30276,7 +30453,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_10"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -30284,47 +30461,47 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_11"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_2_12"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_2_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_2_14"
-      elif (last_rsi_3 > 92.0) and (last_rsi_14 > 70.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_14_gt_70) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_2_15"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_70)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_2_16"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_2_17"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14 > 60.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_2_18"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 > 70.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_gt_70)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_2_19"
-      elif (last_rsi_3 > 48.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 48.0) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_2_20"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_2_21"
       elif (
         (last_rsi_3 > 96.0)
@@ -30334,187 +30511,187 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_22"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -15.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -15.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_2_23"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 > 70.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_gt_70)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_2_24"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_25"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_2_26"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_2_27"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_2_28"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_2_29"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_2_30"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_2_31"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_2_32"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -4.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_2_34"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -7.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -7.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_2_35"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_36"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_37"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -20.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -20.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_2_38"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_2_39"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_2_40"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_41"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -30.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_2_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_2_43"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_44"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_2_45"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_2_46"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_84)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_2_47"
       elif (
-        (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_60)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_48"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_2_50"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_2_51"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14 > 58.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_2_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_53"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_48)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_2_54"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_willr_14 > -16.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -30522,10 +30699,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_55"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
@@ -30538,7 +30715,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_57"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -30546,76 +30723,74 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_2_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_42)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_2_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_2_61"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -4.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_2_62"
-      elif (
-        (last_rsi_3 > 66.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_66) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_2_63"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_64"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_2_65"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_2_66"
       elif (
         (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_2_67"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_2_68"
       elif (
         (last_rsi_3 > 95.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_2_69"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_2_70"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 62.0) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_2_71"
-      elif (last_rsi_3 > 76.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_76) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_2_72"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -30623,81 +30798,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 97.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_74"
       elif (
         (last_rsi_3 > 94.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_75"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 52.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_52) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_2_76"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_77"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -18.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_2_78"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_2_79"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_2_80"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_81"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -12.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_2_82"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_2_83"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_2_84"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_85"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -30705,105 +30880,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_86"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_87"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -22.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_2_88"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_42)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_2_89"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_2_90"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_91"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 40.0)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_2_92"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_93"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_2_94"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_2_95"
       elif (
-        (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_60)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_96"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_2_97"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_3_15m > 70.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -30812,8 +30987,8 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 58.0)
         and (last_rsi_14 < 54.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
@@ -30821,197 +30996,254 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (last_rsi_3 > 96.0) and (last_rsi_14 > 74.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_2_100"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_2_101"
       elif (
-        (last_rsi_3 > 66.0)
+        (last_rsi_3_gt_66)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_2_102"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_2_103"
       elif (
         (last_rsi_3 > 62.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_2_104"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_2_105"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_2_106"
       elif (
         (last_rsi_3 > 72.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_2_107"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_2_108"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_109"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_2_110"
       elif (
         (last_rsi_3 > 48.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_2_111"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -30.0)
         and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_112"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_2_113"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_2_114"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_2_115"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_2_116"
-      elif (
-        (last_rsi_3 > 84.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_2_117"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_2_118"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_2_119"
-      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_2_120"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_2_121"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_2_122"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_2_123"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_2_124"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_2_125"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_2_126"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_2_127"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_2_128"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_2_129"
       elif (
         (last_rsi_3 > 72.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_2_130"
-      elif (last_rsi_14 < 40.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 40.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_2_131"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_2_132"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_2_133"
     elif 0.04 > current_profit >= 0.03:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_64 = last_rsi_3 > 64.0
+      last_rsi_14_lt_54 = last_rsi_14 < 54.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_stochrsi_k_gt_95 = last_stochrsi_k > 95.0
+      last_rsi_14_gt_68 = last_rsi_14 > 68.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_94 = last_rsi_3 > 94.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_62 = last_rsi_3 > 62.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -31031,25 +31263,25 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_3_2"
       elif (
         (last_willr_14 > -20.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_3_3"
       elif (
         (last_willr_14 > -30.0)
         and (last_rsi_14 > 65.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_3_4"
-      elif (last_willr_14 > -6.0) and (last_rsi_14 > 68.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -6.0) and (last_rsi_14_gt_68) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_3_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -31065,7 +31297,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_3_7"
       elif (
         (last_willr_14 > -6.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.1)
         and (last_cmf_20_4h < -0.1)
         and (last_change_pct_1d < -5.0)
@@ -31088,7 +31320,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_10"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -31096,167 +31328,167 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_11"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_3_12"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_3_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_3_14"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 > 65.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14 > 65.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_3_15"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_70)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_3_16"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_3_17"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14 > 60.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_3_18"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_14 > 68.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_14_gt_68)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_3_19"
-      elif (last_rsi_3 > 46.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 46.0) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_3_20"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_3_21"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_willr_14 > -6.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_22"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -20.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -20.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_3_23"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_14 > 68.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_14_gt_68)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_3_24"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_25"
-      elif (last_rsi_3 > 75.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_75) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_3_26"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_3_27"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_3_28"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_3_29"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_3_30"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_3_31"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_3_32"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -6.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_3_34"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_3_35"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -25.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_36"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_37"
-      elif (last_rsi_3 > 75.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_75) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_3_38"
-      elif (last_rsi_3 > 93.0) and (last_willr_14 > -7.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 93.0) and (last_willr_14 > -7.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_3_39"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_3_40"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_41"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -35.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_3_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_3_43"
@@ -31264,61 +31496,61 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 55.0)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_44"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_3_45"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_3_46"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_82)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_3_47"
       elif (
         (last_rsi_3 > 55.0)
-        and (last_rsi_14 < 48.0)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_48"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_3_50"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_3_51"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14 > 56.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_3_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_53"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14_lt_50)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
@@ -31326,7 +31558,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_54"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -18.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -31334,23 +31566,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_55"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_3_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_3_57"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -31358,76 +31590,74 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_3_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_44)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_3_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_3_61"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -6.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_3_62"
-      elif (
-        (last_rsi_3 > 64.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_64) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_3_63"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_64"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_3_65"
-      elif (last_rsi_3 > 78.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_78) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_3_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_46)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_3_67"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_3_68"
       elif (
-        (last_rsi_3 > 94.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
+        (last_rsi_3_gt_94) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_3_69"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_3_70"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_3_71"
-      elif (last_rsi_3 > 74.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_74) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_3_72"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -31435,81 +31665,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 96.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_74"
       elif (
         (last_rsi_3 > 92.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_75"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 54.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_54) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_3_76"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_77"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_3_78"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_3_79"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_3_80"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_81"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_3_82"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 40.0)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_3_83"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_3_84"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -12.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_85"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -31517,80 +31747,80 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_86"
       elif (
-        (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_62)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_87"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -24.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_3_88"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_44)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_3_89"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_3_90"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_91"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_3_92"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_93"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_3_94"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
@@ -31598,24 +31828,24 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 58.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_96"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_3_97"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_rsi_3_15m > 68.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -31624,206 +31854,261 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 56.0)
         and (last_rsi_14 < 56.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_3_99"
-      elif (last_rsi_3 > 94.0) and (last_rsi_14 > 72.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_14 > 72.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_3_100"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_3_101"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_3_102"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14 < 60.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_3_103"
       elif (
-        (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        (last_rsi_3_gt_60)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_3_104"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_3_105"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_3_106"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_3_107"
-      elif (last_rsi_3 > 52.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_3_108"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_109"
-      elif (last_rsi_3 > 68.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_3_110"
       elif (
         (last_rsi_3 > 46.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_3_111"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -35.0)
         and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_112"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_3_113"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_3_114"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_3_115"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_3_116"
-      elif (
-        (last_rsi_3 > 82.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_3_117"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_3_118"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_3_119"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_3_120"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_3_121"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_3_122"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_3_123"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_3_124"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_3_125"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_3_126"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_3_127"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_3_128"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_3_129"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_3_130"
-      elif (last_rsi_14 < 42.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 42.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_3_131"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_3_132"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_3_133"
     elif 0.05 > current_profit >= 0.04:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_54 = last_rsi_14 < 54.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_3_gt_62 = last_rsi_3 > 62.0
+      last_rsi_14_lt_56 = last_rsi_14 < 56.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_stochrsi_k_gt_95 = last_stochrsi_k > 95.0
+      last_rsi_14_gt_66 = last_rsi_14 > 66.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -31843,25 +32128,25 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_4_2"
       elif (
         (last_willr_14 > -20.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_4_3"
       elif (
         (last_willr_14 > -30.0)
         and (last_rsi_14 > 65.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_4_4"
-      elif (last_willr_14 > -8.0) and (last_rsi_14 > 66.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -8.0) and (last_rsi_14_gt_66) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_4_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -31877,7 +32162,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_4_7"
       elif (
         (last_willr_14 > -8.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.1)
         and (last_cmf_20_4h < -0.1)
         and (last_change_pct_1d < -5.0)
@@ -31900,7 +32185,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_10"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -31908,237 +32193,237 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_11"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_4_12"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_4_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_4_14"
-      elif (last_rsi_3 > 88.0) and (last_rsi_14 > 60.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_14 > 60.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_4_15"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_70)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_4_16"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -30.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_4_17"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14 > 60.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_4_18"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 > 66.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_gt_66)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_4_19"
-      elif (last_rsi_3 > 44.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 44.0) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_4_20"
-      elif (last_rsi_3 > 55.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3 > 55.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_4_21"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_willr_14 > -8.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_22"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -25.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -25.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_4_23"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 > 66.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_gt_66)
         and (last_willr_14 > -30.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_4_24"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_25"
-      elif (last_rsi_3 > 70.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_70) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_4_26"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_4_27"
-      elif (last_rsi_3 > 65.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_4_28"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_4_29"
-      elif (last_rsi_3 > 75.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_4_30"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_4_31"
-      elif (last_rsi_3 > 75.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_4_32"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -8.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_4_34"
-      elif (last_rsi_3 > 82.0) and (last_willr_14 > -9.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_82) and (last_willr_14 > -9.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_4_35"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -30.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_36"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_37"
-      elif (last_rsi_3 > 70.0) and (last_willr_14 > -30.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_70) and (last_willr_14 > -30.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_4_38"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -8.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -8.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_4_39"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -30.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_4_40"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_41"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_4_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_4_43"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_44"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -12.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -12.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_4_45"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_4_46"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_80)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_4_47"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_48"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -10.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -10.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_4_50"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 52.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_52) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_4_51"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14 > 54.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_4_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_53"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_52)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_4_54"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -20.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -32146,23 +32431,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_55"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_4_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 42.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_4_57"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -32172,74 +32457,72 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 85.0)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_4_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_46)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_4_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_4_61"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_4_62"
-      elif (
-        (last_rsi_3 > 62.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_62) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_4_63"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_64"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_4_65"
-      elif (last_rsi_3 > 76.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_76) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_4_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_48)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_4_67"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_4_68"
       elif (
         (last_rsi_3 > 93.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_4_69"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_4_70"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_4_71"
-      elif (last_rsi_3 > 72.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_72) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_4_72"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -32247,81 +32530,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 95.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_74"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_75"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 56.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_56) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_4_76"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_77"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -22.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_4_78"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_4_79"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_4_80"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_81"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -16.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_4_82"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_4_83"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_4_84"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_85"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -32329,105 +32612,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_86"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_87"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -26.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_4_88"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_4_89"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_4_90"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_91"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_4_92"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 56.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_56)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_93"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_4_94"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_4_95"
       elif (
         (last_rsi_3 > 56.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_96"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_4_97"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_3_15m > 66.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -32436,206 +32719,260 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 54.0)
         and (last_rsi_14 < 58.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_4_99"
-      elif (last_rsi_3 > 92.0) and (last_rsi_14 > 70.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_14 > 70.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_4_100"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -22.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_4_101"
       elif (
-        (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_62)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_4_102"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14 < 62.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_4_103"
       elif (
         (last_rsi_3 > 58.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_4_104"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_4_105"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_4_106"
       elif (
         (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_4_107"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_4_108"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_109"
-      elif (last_rsi_3 > 66.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_4_110"
       elif (
         (last_rsi_3 > 44.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_4_111"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -40.0)
         and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_112"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_4_113"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_4_114"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_4_115"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_4_116"
-      elif (
-        (last_rsi_3 > 80.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_4_117"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_4_118"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_4_119"
-      elif (last_rsi_3 > 48.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 48.0) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_4_120"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_4_121"
       elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_4_122"
-      elif (last_rsi_3 > 82.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_82) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_4_123"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_4_124"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_4_125"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_4_126"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_4_127"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_4_128"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_4_129"
       elif (
         (last_rsi_3 > 68.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_4_130"
-      elif (last_rsi_14 < 44.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 44.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_4_131"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_4_132"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_4_133"
     elif 0.06 > current_profit >= 0.05:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_14_lt_56 = last_rsi_14 < 56.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_54 = last_rsi_14 < 54.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_rsi_3_gt_64 = last_rsi_3 > 64.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_14_lt_58 = last_rsi_14 < 58.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_stochrsi_k_gt_95 = last_stochrsi_k > 95.0
+      last_rsi_14_gt_64 = last_rsi_14 > 64.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_58 = last_rsi_3 > 58.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -32655,25 +32992,25 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_5_2"
       elif (
         (last_willr_14 > -20.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_5_3"
       elif (
         (last_willr_14 > -30.0)
         and (last_rsi_14 > 65.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h < last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_5_4"
-      elif (last_willr_14 > -10.0) and (last_rsi_14 > 64.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -10.0) and (last_rsi_14_gt_64) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_5_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -32689,7 +33026,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_5_7"
       elif (
         (last_willr_14 > -10.0)
-        and (last_stochrsi_k > 95.0)
+        and (last_stochrsi_k_gt_95)
         and (last_cmf_20_1h < -0.1)
         and (last_cmf_20_4h < -0.1)
         and (last_change_pct_1d < -5.0)
@@ -32712,7 +33049,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_5_10"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -32720,237 +33057,237 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_5_11"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_5_12"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_5_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -12.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -12.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_5_14"
-      elif (last_rsi_3 > 86.0) and (last_rsi_14 > 58.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_14 > 58.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_5_15"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_70)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_5_16"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -35.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_5_17"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14 > 60.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14 > 60.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_5_18"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 > 64.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_gt_64)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_5_19"
-      elif (last_rsi_3 > 42.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 42.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_5_20"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_5_21"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -10.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_5_22"
-      elif (last_rsi_3 > 75.0) and (last_willr_14 > -30.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_75) and (last_willr_14 > -30.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_5_23"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 > 64.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_gt_64)
         and (last_willr_14 > -35.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_5_24"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_25"
-      elif (last_rsi_3 > 65.0) and (last_willr_14 > -12.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_65) and (last_willr_14 > -12.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_5_26"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_5_27"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_5_28"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_5_29"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_5_30"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_5_31"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_5_32"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -10.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_5_34"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -10.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -10.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_5_35"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_willr_14 > -35.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_36"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_37"
-      elif (last_rsi_3 > 65.0) and (last_willr_14 > -35.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_65) and (last_willr_14 > -35.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_5_38"
-      elif (last_rsi_3 > 91.0) and (last_willr_14 > -9.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 91.0) and (last_willr_14 > -9.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_5_39"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_willr_14 > -35.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_5_40"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -30.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_41"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -45.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_5_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_5_43"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_5_44"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -14.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -14.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_5_45"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_5_46"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_78)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_5_47"
       elif (
         (last_rsi_3 > 45.0)
-        and (last_rsi_14 < 52.0)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_48"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -12.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -12.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_5_50"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 54.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_58) and (last_rsi_14_lt_54) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_5_51"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14 > 52.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_5_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_53"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_54)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_5_54"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -22.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -32958,23 +33295,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_5_55"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_5_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 44.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_5_57"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -32984,74 +33321,72 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 85.0)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_5_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_48)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_5_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_5_61"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_5_62"
-      elif (
-        (last_rsi_3 > 60.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_60) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_5_63"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_5_64"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_5_65"
-      elif (last_rsi_3 > 74.0) and (last_rsi_14 < 56.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_74) and (last_rsi_14_lt_56) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_5_66"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14_lt_50)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_5_67"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_5_68"
       elif (
         (last_rsi_3 > 92.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_5_69"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_58) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_5_70"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 52.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_52) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_5_71"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_5_72"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -33059,81 +33394,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 94.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_74"
       elif (
         (last_rsi_3 > 88.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_75"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 58.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_58) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_5_76"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_77"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -24.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_5_78"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_5_79"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_5_80"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_81"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -18.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_5_82"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_5_83"
-      elif (last_rsi_3 > 82.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_82) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_5_84"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -16.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_85"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -33141,105 +33476,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_5_86"
       elif (
-        (last_rsi_3 > 58.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_58)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_87"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -28.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_5_88"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_5_89"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_5_90"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_91"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_5_92"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 58.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_58)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_5_93"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_58)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_5_94"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_5_95"
       elif (
         (last_rsi_3 > 54.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_96"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_5_97"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_3_15m > 64.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -33248,206 +33583,261 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 52.0)
         and (last_rsi_14 < 60.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_5_99"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 > 68.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14 > 68.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_5_100"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -24.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_5_101"
       elif (
-        (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_60)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_5_102"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14 < 64.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_5_103"
       elif (
         (last_rsi_3 > 56.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_5_104"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 56.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_56)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_5_105"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_5_106"
       elif (
         (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_5_107"
-      elif (last_rsi_3 > 48.0) and (last_rsi_14 < 56.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 48.0) and (last_rsi_14_lt_56) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_5_108"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_5_109"
-      elif (last_rsi_3 > 64.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_5_110"
       elif (
         (last_rsi_3 > 42.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_5_111"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_willr_14 > -45.0)
         and (last_rsi_14 < 60.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_5_112"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_5_113"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_58)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_5_114"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 56.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_56)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_5_115"
-      elif (last_rsi_3 > 82.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_5_116"
-      elif (
-        (last_rsi_3 > 78.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_78) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_5_117"
-      elif (last_rsi_3 > 82.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_5_118"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_5_119"
-      elif (last_rsi_3 > 46.0) and (last_rsi_14 < 56.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 46.0) and (last_rsi_14_lt_56) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_5_120"
-      elif (last_rsi_3 > 52.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_5_121"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 52.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_52) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_5_122"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -12.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -12.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_5_123"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_5_124"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_5_125"
-      elif (last_rsi_3 > 82.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_5_126"
-      elif (last_rsi_3 > 82.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_5_127"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_5_128"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_5_129"
       elif (
         (last_rsi_3 > 66.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_5_130"
-      elif (last_rsi_14 < 46.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 46.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_5_131"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_5_132"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_5_133"
     elif 0.07 > current_profit >= 0.06:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_54 = last_rsi_14 < 54.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_3_gt_65 = last_rsi_3 > 65.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_rsi_3_gt_62 = last_rsi_3 > 62.0
+      last_rsi_14_lt_56 = last_rsi_14 < 56.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_rsi_14_gt_66 = last_rsi_14 > 66.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -33470,7 +33860,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 98.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_6_3"
       elif (
@@ -33482,10 +33872,10 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_6_4"
-      elif (last_willr_14 > -8.0) and (last_rsi_14 > 66.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -8.0) and (last_rsi_14_gt_66) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_6_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -33524,7 +33914,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_6_10"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -33532,167 +33922,167 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_6_11"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_6_12"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_6_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_6_14"
-      elif (last_rsi_3 > 88.0) and (last_rsi_14 > 60.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_14 > 60.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_6_15"
       elif (
-        (last_rsi_3 > 75.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_75)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_6_16"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -30.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_6_17"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14 > 65.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14 > 65.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_6_18"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 > 66.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_gt_66)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_6_19"
-      elif (last_rsi_3 > 44.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 44.0) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_6_20"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_6_21"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_willr_14 > -8.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_6_22"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -25.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -25.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_6_23"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 > 66.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_gt_66)
         and (last_willr_14 > -30.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_6_24"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_25"
-      elif (last_rsi_3 > 70.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_70) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_6_26"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_6_27"
-      elif (last_rsi_3 > 65.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_6_28"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_6_29"
-      elif (last_rsi_3 > 75.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_6_30"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_6_31"
-      elif (last_rsi_3 > 75.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_6_32"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -8.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_33"
-      elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
+      elif (last_rsi_3_gt_65) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_6_34"
-      elif (last_rsi_3 > 82.0) and (last_willr_14 > -9.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_82) and (last_willr_14 > -9.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_6_35"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -30.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_36"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_37"
-      elif (last_rsi_3 > 70.0) and (last_willr_14 > -30.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_70) and (last_willr_14 > -30.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_6_38"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -8.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -8.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_6_39"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -30.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_6_40"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_41"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_6_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_6_43"
@@ -33700,69 +34090,69 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 55.0)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_6_44"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -12.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -12.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_6_45"
-      elif (last_rsi_3 > 75.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_6_46"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_80)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_6_47"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_48"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -10.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -10.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_6_50"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 52.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_52) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_6_51"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14 > 54.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_6_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_53"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_52)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_6_54"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -20.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -33770,23 +34160,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_6_55"
       elif (
-        (last_rsi_3 > 65.0)
+        (last_rsi_3_gt_65)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_6_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 42.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_6_57"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -33794,76 +34184,74 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_6_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_6_59"
       elif (
-        (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_65)
+        and (last_rsi_14_lt_46)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_6_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_6_61"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_6_62"
-      elif (
-        (last_rsi_3 > 62.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_62) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_6_63"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_6_64"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_6_65"
-      elif (last_rsi_3 > 76.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_76) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_6_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_48)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_6_67"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_6_68"
       elif (
         (last_rsi_3 > 93.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_6_69"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_6_70"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_6_71"
-      elif (last_rsi_3 > 72.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_72) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_6_72"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -33871,81 +34259,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 95.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_74"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_75"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 56.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_56) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_6_76"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_77"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -22.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_6_78"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_6_79"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_6_80"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_81"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -16.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_6_82"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_6_83"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_6_84"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_85"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -33953,105 +34341,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_6_86"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_87"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -26.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_6_88"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_6_89"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_6_90"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_91"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_6_92"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 56.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_56)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_6_93"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_6_94"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_6_95"
       elif (
         (last_rsi_3 > 56.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_96"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_6_97"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_3_15m > 66.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -34060,206 +34448,261 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 54.0)
         and (last_rsi_14 < 58.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_6_99"
-      elif (last_rsi_3 > 92.0) and (last_rsi_14 > 70.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_14 > 70.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_6_100"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -22.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_6_101"
       elif (
-        (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_62)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_6_102"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14 < 62.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_6_103"
       elif (
         (last_rsi_3 > 58.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_6_104"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_6_105"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_6_106"
       elif (
         (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_6_107"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_6_108"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_6_109"
-      elif (last_rsi_3 > 66.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_6_110"
       elif (
         (last_rsi_3 > 44.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_6_111"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -40.0)
         and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_6_112"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_6_113"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_56)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_6_114"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_6_115"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_6_116"
-      elif (
-        (last_rsi_3 > 80.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_6_117"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_6_118"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_6_119"
-      elif (last_rsi_3 > 48.0) and (last_rsi_14 < 54.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 48.0) and (last_rsi_14_lt_54) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_6_120"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_6_121"
       elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_6_122"
-      elif (last_rsi_3 > 82.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_82) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_6_123"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_6_124"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_6_125"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_6_126"
-      elif (last_rsi_3 > 84.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_6_127"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_6_128"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_6_129"
       elif (
         (last_rsi_3 > 68.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_6_130"
-      elif (last_rsi_14 < 44.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 44.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_6_131"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_6_132"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_6_133"
     elif 0.08 > current_profit >= 0.07:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_64 = last_rsi_3 > 64.0
+      last_rsi_14_lt_54 = last_rsi_14 < 54.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_rsi_14_gt_68 = last_rsi_14 > 68.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_94 = last_rsi_3 > 94.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_60 = last_rsi_3 > 60.0
+      last_rsi_3_gt_62 = last_rsi_3 > 62.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -34282,7 +34725,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 98.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_7_3"
       elif (
@@ -34294,10 +34737,10 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_7_4"
-      elif (last_willr_14 > -6.0) and (last_rsi_14 > 68.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -6.0) and (last_rsi_14_gt_68) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_7_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -34336,7 +34779,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_10"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -34344,108 +34787,108 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_11"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_7_12"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_7_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_7_14"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 > 62.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14 > 62.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_7_15"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_80)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_7_16"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_7_17"
-      elif (last_rsi_3 > 85.0) and (last_rsi_14 > 70.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_14 > 70.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_7_18"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_14 > 68.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_14_gt_68)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_7_19"
-      elif (last_rsi_3 > 46.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 46.0) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_7_20"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_7_21"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_willr_14 > -6.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_7_22"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -20.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -20.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_7_23"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_14 > 68.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_14_gt_68)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_7_24"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_25"
-      elif (last_rsi_3 > 75.0) and (last_willr_14 > -8.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_75) and (last_willr_14 > -8.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_7_26"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_7_27"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_7_28"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_7_29"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_7_30"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_7_31"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_7_32"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -6.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
@@ -34454,119 +34897,119 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_7_33"
       elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_7_34"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_7_35"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -25.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_36"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_37"
-      elif (last_rsi_3 > 75.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_75) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_7_38"
-      elif (last_rsi_3 > 93.0) and (last_willr_14 > -7.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 93.0) and (last_willr_14 > -7.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_7_39"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_willr_14 > -25.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_7_40"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_41"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -35.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_7_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_7_43"
       elif (
-        (last_rsi_3 > 60.0)
+        (last_rsi_3_gt_60)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_7_44"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_7_45"
-      elif (last_rsi_3 > 80.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_7_46"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_82)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_7_47"
       elif (
         (last_rsi_3 > 55.0)
-        and (last_rsi_14 < 48.0)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_48"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -8.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_7_50"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14_lt_50) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_50) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_7_51"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14 > 56.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_7_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_53"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14_lt_50)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
@@ -34574,7 +35017,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_54"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -18.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -34582,23 +35025,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_55"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_7_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_7_57"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -34606,76 +35049,74 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_7_59"
       elif (
         (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_7_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_7_61"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -6.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_7_62"
-      elif (
-        (last_rsi_3 > 64.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_64) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_7_63"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_7_64"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_7_65"
-      elif (last_rsi_3 > 78.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_78) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_7_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_46)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_7_67"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_7_68"
       elif (
-        (last_rsi_3 > 94.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
+        (last_rsi_3_gt_94) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_7_69"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_62) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_7_70"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_60) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_7_71"
-      elif (last_rsi_3 > 74.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_74) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_7_72"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -34683,81 +35124,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 96.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_74"
       elif (
         (last_rsi_3 > 92.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_75"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 54.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_54) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_7_76"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_77"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_7_78"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_7_79"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_7_80"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_81"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_7_82"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 40.0)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_7_83"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_7_84"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -12.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_85"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -34765,80 +35206,80 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_7_86"
       elif (
-        (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_62)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_87"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -24.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_7_88"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_44)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_7_89"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_7_90"
       elif (
-        (last_rsi_3 > 68.0)
+        (last_rsi_3_gt_68)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_91"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_7_92"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 54.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_54)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_7_93"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_7_94"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
@@ -34846,24 +35287,24 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 58.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_96"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_7_97"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_rsi_3_15m > 68.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -34872,206 +35313,258 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 56.0)
         and (last_rsi_14 < 56.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_7_99"
-      elif (last_rsi_3 > 94.0) and (last_rsi_14 > 72.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_14 > 72.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_7_100"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_7_101"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_7_102"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_rsi_14 < 60.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_7_103"
       elif (
-        (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        (last_rsi_3_gt_60)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_7_104"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_7_105"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_7_106"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_7_107"
-      elif (last_rsi_3 > 52.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_7_108"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_7_109"
-      elif (last_rsi_3 > 68.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_7_110"
       elif (
         (last_rsi_3 > 46.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_7_111"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -35.0)
         and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_7_112"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_7_113"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_54)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_7_114"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_7_115"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_7_116"
-      elif (
-        (last_rsi_3 > 82.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_82) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_7_117"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_7_118"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_7_119"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 52.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_52) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_7_120"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_7_121"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_7_122"
-      elif (last_rsi_3 > 84.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_84) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_7_123"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_7_124"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_7_125"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_7_126"
-      elif (last_rsi_3 > 86.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_7_127"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_7_128"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_7_129"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_7_130"
-      elif (last_rsi_14 < 42.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 42.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_7_131"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_7_132"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_7_133"
     elif 0.09 > current_profit >= 0.08:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_rsi_3_gt_95 = last_rsi_3 > 95.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_14_lt_52 = last_rsi_14 < 52.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_rsi_14_gt_70 = last_rsi_14 > 70.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_rsi_3_gt_75 = last_rsi_3 > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_64 = last_rsi_3 > 64.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -35094,7 +35587,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 98.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_8_3"
       elif (
@@ -35106,10 +35599,10 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_8_4"
-      elif (last_willr_14 > -4.0) and (last_rsi_14 > 70.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -4.0) and (last_rsi_14_gt_70) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_8_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
         and (last_rsi_14 < 40.0)
         and (last_roc_9_1h < -10.0)
@@ -35134,7 +35627,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_8_8"
       elif (
         (last_willr_14 > -5.0)
-        and (last_rsi_3 > 95.0)
+        and (last_rsi_3_gt_95)
         and (last_change_pct_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
@@ -35148,7 +35641,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_10"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -35156,47 +35649,47 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_11"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_8_12"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_8_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_8_14"
-      elif (last_rsi_3 > 92.0) and (last_rsi_14 > 64.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_14 > 64.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_8_15"
       elif (
-        (last_rsi_3 > 85.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_85)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_8_16"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_8_17"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14 > 72.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14 > 72.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_8_18"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 > 70.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_gt_70)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_8_19"
-      elif (last_rsi_3 > 48.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 48.0) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_8_20"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_8_21"
       elif (
         (last_rsi_3 > 96.0)
@@ -35206,58 +35699,58 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_8_22"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -15.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -15.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_8_23"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_14 > 70.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_14_gt_70)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_8_24"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_25"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -6.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -6.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_8_26"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_8_27"
-      elif (last_rsi_3 > 75.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_75) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_8_28"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_8_29"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_8_30"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_8_31"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_8_32"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -4.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
@@ -35266,57 +35759,57 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_8_33"
       elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_8_34"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -7.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -7.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_8_35"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_36"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_37"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -20.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -20.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_8_38"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_8_39"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -20.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_8_40"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_41"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -30.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_8_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_8_43"
@@ -35324,69 +35817,69 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 65.0)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_8_44"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -8.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -8.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_8_45"
-      elif (last_rsi_3 > 85.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_8_46"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_84)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_8_47"
       elif (
         (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 46.0)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_48"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_8_50"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 48.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_48) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_8_51"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14 > 58.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_8_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_53"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_48)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_8_54"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_willr_14 > -16.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -35394,10 +35887,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_55"
       elif (
-        (last_rsi_3 > 75.0)
+        (last_rsi_3_gt_75)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
@@ -35410,7 +35903,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_57"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -35418,76 +35911,74 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_8_59"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_42)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_8_60"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -25.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_8_61"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -4.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_8_62"
-      elif (
-        (last_rsi_3 > 66.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_66) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_8_63"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_8_64"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_8_65"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_8_66"
       elif (
         (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_8_67"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_8_68"
       elif (
-        (last_rsi_3 > 95.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
+        (last_rsi_3_gt_95) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_8_69"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_64) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_8_70"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 62.0) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_8_71"
-      elif (last_rsi_3 > 76.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_76) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_8_72"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -35495,81 +35986,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 97.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_74"
       elif (
         (last_rsi_3 > 94.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_75"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 52.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_52) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_8_76"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_77"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -18.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_8_78"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_8_79"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_8_80"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_81"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -12.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_8_82"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_8_83"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_8_84"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_85"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -35577,105 +36068,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_8_86"
       elif (
-        (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_64)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_87"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -22.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_8_88"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_42)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_8_89"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_8_90"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_91"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 40.0)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_8_92"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 52.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_52)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_8_93"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_8_94"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_8_95"
       elif (
         (last_rsi_3 > 60.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_96"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_8_97"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_3_15m > 70.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -35684,8 +36175,8 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 58.0)
         and (last_rsi_14 < 54.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
@@ -35693,197 +36184,252 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (last_rsi_3 > 96.0) and (last_rsi_14 > 74.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_8_100"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -18.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_8_101"
       elif (
-        (last_rsi_3 > 66.0)
+        (last_rsi_3_gt_66)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_8_102"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14 < 58.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_8_103"
       elif (
         (last_rsi_3 > 62.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_8_104"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_8_105"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_8_106"
       elif (
         (last_rsi_3 > 72.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_8_107"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_8_108"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_8_109"
-      elif (last_rsi_3 > 70.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_8_110"
       elif (
         (last_rsi_3 > 48.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_8_111"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -30.0)
         and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_8_112"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_8_113"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_52)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_8_114"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_8_115"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_8_116"
-      elif (
-        (last_rsi_3 > 84.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_84) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_8_117"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_8_118"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_8_119"
-      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 52.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_8_120"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_8_121"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_8_122"
-      elif (last_rsi_3 > 86.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_86) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_8_123"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_8_124"
       elif (
-        (last_rsi_3 > 74.0)
+        (last_rsi_3_gt_74)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_8_125"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_8_126"
-      elif (last_rsi_3 > 88.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_8_127"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_8_128"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_8_129"
       elif (
         (last_rsi_3 > 72.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_8_130"
-      elif (last_rsi_14 < 40.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 40.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_8_131"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_8_132"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_8_133"
     elif 0.1 > current_profit >= 0.09:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_gt_72 = last_rsi_3 > 72.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_14_lt_40 = last_rsi_14 < 40.0
+      last_rsi_3_gt_94 = last_rsi_3 > 94.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_rsi_3_gt_95 = last_rsi_3 > 95.0
+      last_rsi_3_gt_96 = last_rsi_3 > 96.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_gt_50 = last_rsi_3 > 50.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_rsi_14_gt_72 = last_rsi_14 > 72.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_98 = last_rsi_3 > 98.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_66 = last_rsi_3 > 66.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_rsi_3_gt_76 = last_rsi_3 > 76.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -35906,7 +36452,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 98.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_9_3"
       elif (
@@ -35918,12 +36464,12 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_9_4"
-      elif (last_willr_14 > -2.0) and (last_rsi_14 > 72.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -2.0) and (last_rsi_14_gt_72) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_9_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
@@ -35946,7 +36492,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_9_8"
       elif (
         (last_willr_14 > -4.0)
-        and (last_rsi_3 > 95.0)
+        and (last_rsi_3_gt_95)
         and (last_change_pct_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
@@ -35960,7 +36506,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_9_10"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -35968,108 +36514,108 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_9_11"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_9_12"
-      elif (last_rsi_3 > 96.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_96) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_9_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_9_14"
-      elif (last_rsi_3 > 94.0) and (last_rsi_14 > 66.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_14 > 66.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_9_15"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_90)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
       ):
         return True, f"exit_{mode_name}_d_9_16"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_willr_14 > -15.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_9_17"
-      elif (last_rsi_3 > 92.0) and (last_rsi_14 > 74.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_14 > 74.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_9_18"
       elif (
-        (last_rsi_3 > 92.0)
-        and (last_rsi_14 > 72.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_92)
+        and (last_rsi_14_gt_72)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_9_19"
-      elif (last_rsi_3 > 50.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3_gt_50) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_9_20"
-      elif (last_rsi_3 > 90.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_9_21"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -2.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_9_22"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -10.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -10.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_9_23"
       elif (
-        (last_rsi_3 > 92.0)
-        and (last_rsi_14 > 72.0)
+        (last_rsi_3_gt_92)
+        and (last_rsi_14_gt_72)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_9_24"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_25"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -4.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -4.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_9_26"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_9_27"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_9_28"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_9_29"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_9_30"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_9_31"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_9_32"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -2.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
@@ -36078,127 +36624,127 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_9_33"
       elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_9_34"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -6.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -6.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_9_35"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -15.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_36"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_37"
-      elif (last_rsi_3 > 85.0) and (last_willr_14 > -15.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_85) and (last_willr_14 > -15.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_9_38"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -5.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -5.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_9_39"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -15.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_9_40"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_41"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -25.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_9_42"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_9_43"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_willr_14 > -5.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_9_44"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -6.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_94) and (last_willr_14 > -6.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_9_45"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_9_46"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_86)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_9_47"
       elif (
         (last_rsi_3 > 65.0)
-        and (last_rsi_14 < 44.0)
+        and (last_rsi_14_lt_44)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_48"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -4.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -4.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_9_50"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 46.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_46) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_9_51"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14 > 60.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_9_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_53"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_46)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_9_54"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_willr_14 > -14.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -36206,23 +36752,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_9_55"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
         return True, f"exit_{mode_name}_d_9_56"
       elif (
-        (last_rsi_3 > 50.0)
+        (last_rsi_3_gt_50)
         and (last_rsi_14 < 36.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 70.0)
       ):
         return True, f"exit_{mode_name}_d_9_57"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -36230,158 +36776,156 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_9_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_9_59"
       elif (
         (last_rsi_3 > 75.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_9_60"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -20.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -20.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_9_61"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_9_62"
-      elif (
-        (last_rsi_3 > 68.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_68) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_9_63"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_9_64"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_9_65"
-      elif (last_rsi_3 > 82.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_82) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_9_66"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_42)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_9_67"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_9_68"
       elif (
-        (last_rsi_3 > 96.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
+        (last_rsi_3_gt_96) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_9_69"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_66) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_9_70"
-      elif (last_rsi_3 > 64.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 64.0) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_9_71"
-      elif (last_rsi_3 > 78.0) and (last_rsi_14 < 42.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_78) and (last_rsi_14_lt_42) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_9_72"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_9_73"
       elif (
-        (last_rsi_3 > 98.0)
+        (last_rsi_3_gt_98)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_74"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_75"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14_lt_50) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_50) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_9_76"
       elif (
-        (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_76)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_77"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -16.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_9_78"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_9_79"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_9_80"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_81"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_9_82"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_9_83"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -2.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -2.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_9_84"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_85"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -36389,105 +36933,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_9_86"
       elif (
-        (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_66)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_87"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -20.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_9_88"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 40.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_9_89"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_9_90"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_91"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_9_92"
       elif (
-        (last_rsi_3 > 72.0)
+        (last_rsi_3_gt_72)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_9_93"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 25.0)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_9_94"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -12.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_9_95"
       elif (
         (last_rsi_3 > 62.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_96"
       elif (
-        (last_rsi_3 > 84.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_84)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_9_97"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_15m > 72.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -36496,206 +37040,259 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 60.0)
         and (last_rsi_14 < 52.0)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_9_99"
-      elif (last_rsi_3 > 98.0) and (last_rsi_14 > 76.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_98) and (last_rsi_14 > 76.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_9_100"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -16.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_9_101"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_9_102"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_rsi_14 < 56.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_9_103"
       elif (
         (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_9_104"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_9_105"
       elif (
-        (last_rsi_3 > 72.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_72)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_9_106"
       elif (
         (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_9_107"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_9_108"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_9_109"
-      elif (last_rsi_3 > 72.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_72) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_9_110"
       elif (
-        (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        (last_rsi_3_gt_50)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_9_111"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_willr_14 > -25.0)
         and (last_rsi_14 < 52.0)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_9_112"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -1.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_9_113"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_9_114"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_9_115"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_9_116"
-      elif (
-        (last_rsi_3 > 86.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_86) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_9_117"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_9_118"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_9_119"
-      elif (last_rsi_3 > 54.0) and (last_rsi_14 < 48.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 54.0) and (last_rsi_14_lt_48) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_9_120"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_9_121"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_9_122"
-      elif (last_rsi_3 > 88.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_88) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_9_123"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_9_124"
       elif (
-        (last_rsi_3 > 76.0)
+        (last_rsi_3_gt_76)
         and (last_willr_14 > -4.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_9_125"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_9_126"
-      elif (last_rsi_3 > 90.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_90) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_9_127"
-      elif (last_rsi_3 > 94.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_9_128"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_9_129"
       elif (
         (last_rsi_3 > 74.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_9_130"
-      elif (last_rsi_14 < 38.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 38.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_9_131"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_9_132"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_9_133"
     elif 0.12 > current_profit >= 0.1:
+      # Reused long exit decision threshold checks for this profit bracket
+      last_rsi_3_gt_95 = last_rsi_3 > 95.0
+      last_rsi_3_gt_90 = last_rsi_3 > 90.0
+      last_rsi_14_lt_46 = last_rsi_14 < 46.0
+      last_rsi_3_4h_lt_20 = last_rsi_3_4h < 20.0
+      last_rsi_3_1h_lt_20 = last_rsi_3_1h < 20.0
+      last_rsi_3_4h_lt_10 = last_rsi_3_4h < 10.0
+      last_rsi_3_gt_96 = last_rsi_3 > 96.0
+      last_rsi_3_gt_80 = last_rsi_3 > 80.0
+      last_rsi_14_lt_44 = last_rsi_14 < 44.0
+      last_rsi_3_1h_lt_15 = last_rsi_3_1h < 15.0
+      last_rsi_3_1h_lt_50 = last_rsi_3_1h < 50.0
+      last_rsi_3_gt_70 = last_rsi_3 > 70.0
+      last_rsi_3_gt_94 = last_rsi_3 > 94.0
+      last_rsi_3_1h_lt_10 = last_rsi_3_1h < 10.0
+      last_rsi_3_1h_lt_25 = last_rsi_3_1h < 25.0
+      last_rsi_3_4h_lt_40 = last_rsi_3_4h < 40.0
+      last_rsi_3_gt_92 = last_rsi_3 > 92.0
+      last_rsi_3_4h_lt_25 = last_rsi_3_4h < 25.0
+      last_rsi_3_gt_86 = last_rsi_3 > 86.0
+      last_rsi_3_1d_lt_25 = last_rsi_3_1d < 25.0
+      last_rsi_3_gt_88 = last_rsi_3 > 88.0
+      last_rsi_3_gt_82 = last_rsi_3 > 82.0
+      last_rsi_3_gt_74 = last_rsi_3 > 74.0
+      last_aroonu_14_4h_gt_50 = last_aroonu_14_4h > 50.0
+      last_rsi_3_1h_lt_60 = last_rsi_3_1h < 60.0
+      last_rsi_14_lt_40 = last_rsi_14 < 40.0
+      last_rsi_3_gt_85 = last_rsi_3 > 85.0
+      last_stochrsi_k_4h_gt_30 = last_stochrsi_k_4h > 30.0
+      last_stochrsi_k_4h_gt_40 = last_stochrsi_k_4h > 40.0
+      last_rsi_14_lt_42 = last_rsi_14 < 42.0
+      last_stochrsi_k_4h_gt_20 = last_stochrsi_k_4h > 20.0
+      last_stochrsi_k_4h_gt_90 = last_stochrsi_k_4h > 90.0
+      last_rsi_3_4h_lt_15 = last_rsi_3_4h < 15.0
+      last_stochrsi_k_1h_gt_70 = last_stochrsi_k_1h > 70.0
+      last_stochrsi_k_1h_gt_80 = last_stochrsi_k_1h > 80.0
+      last_rsi_14_lt_48 = last_rsi_14 < 48.0
+      last_stochrsi_k_1h_gt_40 = last_stochrsi_k_1h > 40.0
+      last_aroonu_14_1h_gt_75 = last_aroonu_14_1h > 75.0
+      last_rsi_3_4h_lt_60 = last_rsi_3_4h < 60.0
+      last_rsi_14_gt_74 = last_rsi_14 > 74.0
+      last_aroonu_14_4h_gt_25 = last_aroonu_14_4h > 25.0
+      last_rsi_3_gt_99 = last_rsi_3 > 99.0
+      last_aroonu_14_4h_gt_75 = last_aroonu_14_4h > 75.0
+      last_stochrsi_k_1h_gt_30 = last_stochrsi_k_1h > 30.0
+      last_rsi_3_gt_84 = last_rsi_3 > 84.0
+      last_stochrsi_k_4h_gt_25 = last_stochrsi_k_4h > 25.0
+      last_rsi_3_gt_68 = last_rsi_3 > 68.0
+      last_rsi_14_lt_38 = last_rsi_14 < 38.0
+      last_rsi_3_gt_78 = last_rsi_3 > 78.0
+      last_rsi_3_1h_lt_40 = last_rsi_3_1h < 40.0
+      last_rsi_3_1h_lt_45 = last_rsi_3_1h < 45.0
+      last_rsi_3_1h_lt_35 = last_rsi_3_1h < 35.0
+      last_rsi_14_4h_gt_70 = last_rsi_14_4h > 70.0
+      last_rsi_3_1d_lt_30 = last_rsi_3_1d < 30.0
       if (
         (last_willr_14 > -1.0)
         and (last_rsi_14 > 78.0)
@@ -36718,7 +37315,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k > 98.0)
         and (last_cmf_20_1h < -0.0)
         and (last_cmf_20_4h < -0.0)
-        and ((last_stochrsi_k_4h > 20.0) and (last_stochrsi_k_change_pct_4h < -10.0))
+        and ((last_stochrsi_k_4h_gt_20) and (last_stochrsi_k_change_pct_4h < -10.0))
       ):
         return True, f"exit_{mode_name}_d_10_3"
       elif (
@@ -36730,12 +37327,12 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h < last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_10_4"
-      elif (last_willr_14 > -1.0) and (last_rsi_14 > 74.0) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
+      elif (last_willr_14 > -1.0) and (last_rsi_14_gt_74) and (last_roc_9_1h < -5.0) and (last_roc_9_4h < -5.0):
         return True, f"exit_{mode_name}_d_10_5"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_stochrsi_k > 70.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_roc_9_1h < -10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
@@ -36758,7 +37355,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_10_8"
       elif (
         (last_willr_14 > -3.0)
-        and (last_rsi_3 > 95.0)
+        and (last_rsi_3_gt_95)
         and (last_change_pct_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
@@ -36772,7 +37369,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_10"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_rsi_14 < 45.0)
         and (last_roc_9_15m < -10.0)
         and (last_roc_9_1h < -10.0)
@@ -36780,22 +37377,22 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_11"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_1h < -20.0)
         and (last_roc_9_4h < -20.0)
       ):
         return True, f"exit_{mode_name}_d_10_12"
-      elif (last_rsi_3 > 96.0) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_gt_96) and (last_rsi_3_4h < 5.0) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_10_13"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -2.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -2.0) and (last_rsi_3_4h < 5.0) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_10_14"
-      elif (last_rsi_3 > 96.0) and (last_rsi_14 > 68.0) and (last_roc_9_4h < -30.0):
+      elif (last_rsi_3_gt_96) and (last_rsi_14 > 68.0) and (last_roc_9_4h < -30.0):
         return True, f"exit_{mode_name}_d_10_15"
       elif (
-        (last_rsi_3 > 95.0)
-        and (last_aroonu_14_4h > 25.0)
+        (last_rsi_3_gt_95)
+        and (last_aroonu_14_4h_gt_25)
         and (last_roc_9_4h < -25.0)
         and (last_aroonu_14_1d > 50.0)
         and (last_change_pct_1d < -15.0)
@@ -36804,84 +37401,84 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 > 97.0)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 30.0)
       ):
         return True, f"exit_{mode_name}_d_10_17"
-      elif (last_rsi_3 > 94.0) and (last_rsi_14 > 76.0) and (last_rsi_3_4h < 20.0) and (last_roc_2_1d < -50.0):
+      elif (last_rsi_3_gt_94) and (last_rsi_14 > 76.0) and (last_rsi_3_4h_lt_20) and (last_roc_2_1d < -50.0):
         return True, f"exit_{mode_name}_d_10_18"
       elif (
-        (last_rsi_3 > 94.0)
-        and (last_rsi_14 > 74.0)
-        and (last_rsi_3_4h < 10.0)
+        (last_rsi_3_gt_94)
+        and (last_rsi_14_gt_74)
+        and (last_rsi_3_4h_lt_10)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_10_19"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_1h > 25.0):
+      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_10_20"
-      elif (last_rsi_3 > 95.0) and (last_rsi_14_lt_50) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_4h > 90.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_14_lt_50) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_4h_gt_90):
         return True, f"exit_{mode_name}_d_10_21"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -1.0)
         and (last_change_pct_4h < -5.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_10_22"
-      elif (last_rsi_3 > 95.0) and (last_willr_14 > -5.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_1d < 5.0):
+      elif (last_rsi_3_gt_95) and (last_willr_14 > -5.0) and (last_rsi_3_1h_lt_15) and (last_rsi_3_1d < 5.0):
         return True, f"exit_{mode_name}_d_10_23"
       elif (
-        (last_rsi_3 > 94.0)
-        and (last_rsi_14 > 74.0)
+        (last_rsi_3_gt_94)
+        and (last_rsi_14_gt_74)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_aroonu_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_10_24"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_4h < 10.0)
+        and (last_rsi_3_4h_lt_10)
         and (last_roc_9_4h < -15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_25"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -2.0) and (last_rsi_3_4h < 15.0) and (last_roc_9_4h < -20.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -2.0) and (last_rsi_3_4h_lt_15) and (last_roc_9_4h < -20.0):
         return True, f"exit_{mode_name}_d_10_26"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_4h > 20.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_4h_gt_20)
       ):
         return True, f"exit_{mode_name}_d_10_27"
-      elif (last_rsi_3 > 85.0) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
+      elif (last_rsi_3_gt_85) and (last_rsi_14_lt_50) and (last_rsi_3_15m < 10.0) and (last_roc_9_4h > 50.0):
         return True, f"exit_{mode_name}_d_10_28"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_4h < 20.0)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_4h_lt_20)
+        and (last_stochrsi_k_1h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_10_29"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_1h < 25.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 70.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_25) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_70):
         return True, f"exit_{mode_name}_d_10_30"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 15.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_15)
         and (last_stochrsi_k_1h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_10_31"
-      elif (last_rsi_3 > 95.0) and (last_rsi_3_1h < 15.0) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h > 30.0):
+      elif (last_rsi_3_gt_95) and (last_rsi_3_1h_lt_15) and (last_roc_2_4h < -30.0) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_10_32"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -1.0)
         and (last_roc_2_1h < -10.0)
         and (last_roc_9_1h > 30.0)
@@ -36890,57 +37487,57 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_10_33"
       elif (last_rsi_3 > 65.0) and (last_rsi_3_15m < 30.0) and (last_rsi_14_1h > 80.0) and (last_roc_9_1h > 40.0):
         return True, f"exit_{mode_name}_d_10_34"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -5.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 75.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -5.0) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h > 75.0):
         return True, f"exit_{mode_name}_d_10_35"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -10.0)
         and (last_roc_9_4h < -25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_36"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 20.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1h_lt_20)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_37"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -10.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -10.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_10_38"
-      elif (last_rsi_3 > 96.0) and (last_willr_14 > -4.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_96) and (last_willr_14 > -4.0) and (last_cmf_20_4h < -0.0) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_10_39"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -10.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_1h > 30.0)
+        and (last_stochrsi_k_1h_gt_30)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_10_40"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_41"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -20.0)
-        and (last_stochrsi_k_4h > 30.0)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 70.0))
       ):
         return True, f"exit_{mode_name}_d_10_42"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 15.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_15)
+        and (last_rsi_3_4h_lt_40)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_10_43"
@@ -36948,69 +37545,69 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 75.0)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_1d_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_10_44"
-      elif (last_rsi_3 > 96.0) and (last_willr_14 > -4.0) and (last_rsi_3_1h < 10.0):
+      elif (last_rsi_3_gt_96) and (last_willr_14 > -4.0) and (last_rsi_3_1h_lt_10):
         return True, f"exit_{mode_name}_d_10_45"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 10.0) and (last_roc_2_1d < -20.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_10) and (last_roc_2_1d < -20.0):
         return True, f"exit_{mode_name}_d_10_46"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_stochrsi_k_1h > 80.0)
-        and (last_stochrsi_k_4h > 40.0)
+        (last_rsi_3_gt_88)
+        and (last_stochrsi_k_1h_gt_80)
+        and (last_stochrsi_k_4h_gt_40)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -5.0))
       ):
         return True, f"exit_{mode_name}_d_10_47"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 42.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_42)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_48"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_change_pct_1d < -5.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_49"
-      elif (last_rsi_3 > 80.0) and (last_willr_14 > -2.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
+      elif (last_rsi_3_gt_80) and (last_willr_14 > -2.0) and (last_rsi_3_1d < 10.0) and (last_stochrsi_k_1h > 90.0):
         return True, f"exit_{mode_name}_d_10_50"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14 < 44.0) and (last_rsi_3_4h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_44) and (last_rsi_3_4h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_10_51"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_rsi_14 > 62.0)
         and (last_willr_14 > -10.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_stochrsi_k_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_10_52"
       elif (
-        (last_rsi_3 > 70.0)
+        (last_rsi_3_gt_70)
         and (last_rsi_14_lt_50)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 20.0)
+        and (last_rsi_3_1h_lt_20)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_53"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_44)
         and (last_stochrsi_k_1h_gt_50)
         and (last_roc_9_4h < -10.0)
         and (last_change_pct_1d < -10.0)
       ):
         return True, f"exit_{mode_name}_d_10_54"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_willr_14 > -12.0)
         and (last_roc_9_4h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
@@ -37018,10 +37615,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_55"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
         and (last_stochrsi_k_4h > 10.0)
       ):
@@ -37034,7 +37631,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_57"
       elif (
-        (last_rsi_3 > 95.0)
+        (last_rsi_3_gt_95)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
@@ -37042,158 +37639,156 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_58"
       elif (
-        (last_rsi_3 > 85.0)
+        (last_rsi_3_gt_85)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_10_59"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 38.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_38)
         and (last_rsi_14_4h > 65.0)
         and (last_stochrsi_k_4h_gt_50)
         and (last_stochrsi_k_1d > 50.0)
       ):
         return True, f"exit_{mode_name}_d_10_60"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -15.0) and (last_rsi_3_4h < 10.0) and (last_stochrsi_k_1h > 30.0):
+      elif (last_rsi_3_gt_94) and (last_willr_14 > -15.0) and (last_rsi_3_4h_lt_10) and (last_stochrsi_k_1h_gt_30):
         return True, f"exit_{mode_name}_d_10_61"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -2.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
         and (last_change_pct_1d < -5.0)
       ):
         return True, f"exit_{mode_name}_d_10_62"
-      elif (
-        (last_rsi_3 > 70.0) and (last_rsi_3_1d < 25.0) and (last_stochrsi_k_1h > 80.0) and (last_stochrsi_k_4h > 30.0)
-      ):
+      elif (last_rsi_3_gt_70) and (last_rsi_3_1d_lt_25) and (last_stochrsi_k_1h_gt_80) and (last_stochrsi_k_4h_gt_30):
         return True, f"exit_{mode_name}_d_10_63"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_rsi_3_1h_lt_30)
         and (last_rsi_3_4h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_10_64"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 15.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_15):
         return True, f"exit_{mode_name}_d_10_65"
-      elif (last_rsi_3 > 84.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 20.0) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3_gt_84) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_20) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_10_66"
       elif (
         (last_rsi_3 > 50.0)
-        and (last_rsi_14 < 40.0)
+        and (last_rsi_14_lt_40)
         and (last_stochrsi_k_4h > 80.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_10_67"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_25)
         and (last_roc_2_4h < -30.0)
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_10_68"
       elif (
         (last_rsi_3 > 97.0) and (last_roc_9_4h > 20.0) and (last_stochrsi_k_4h_gt_50) and (last_change_pct_4h < -5.0)
       ):
         return True, f"exit_{mode_name}_d_10_69"
-      elif (last_rsi_3 > 68.0) and (last_rsi_14 < 38.0) and (last_rsi_3_1h < 25.0) and (last_stochrsi_k_4h > 20.0):
+      elif (last_rsi_3_gt_68) and (last_rsi_14_lt_38) and (last_rsi_3_1h_lt_25) and (last_stochrsi_k_4h_gt_20):
         return True, f"exit_{mode_name}_d_10_70"
-      elif (last_rsi_3 > 66.0) and (last_rsi_14 < 42.0) and (last_rsi_3_4h < 25.0) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3 > 66.0) and (last_rsi_14_lt_42) and (last_rsi_3_4h_lt_25) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_10_71"
-      elif (last_rsi_3 > 80.0) and (last_rsi_14 < 40.0) and (last_rsi_3_1h < 10.0) and (last_aroonu_14_4h > 25.0):
+      elif (last_rsi_3_gt_80) and (last_rsi_14_lt_40) and (last_rsi_3_1h_lt_10) and (last_aroonu_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_10_72"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 15.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_15)
         and (last_roc_9_4h < -20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_10_73"
       elif (
-        (last_rsi_3 > 99.0)
+        (last_rsi_3_gt_99)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_rsi_3_1d < 25.0)
+        and (last_rsi_3_4h_lt_25)
+        and (last_rsi_3_1d_lt_25)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_74"
       elif (
         (last_rsi_3 > 98.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_75"
-      elif (last_rsi_3 > 70.0) and (last_rsi_14 < 48.0) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
+      elif (last_rsi_3_gt_70) and (last_rsi_14_lt_48) and (last_roc_9_1h > 80.0) and (last_stochrsi_k_4h > 80.0):
         return True, f"exit_{mode_name}_d_10_76"
       elif (
-        (last_rsi_3 > 78.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_78)
+        and (last_rsi_14_lt_44)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_77"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -14.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_4h_lt_20)
         and (last_rsi_3_1d < 20.0)
       ):
         return True, f"exit_{mode_name}_d_10_78"
-      elif (last_rsi_3 > 94.0) and (last_willr_14 > -1.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h < 10.0):
+      elif (last_rsi_3_gt_94) and (last_willr_14 > -1.0) and (last_rsi_3_1h_lt_30) and (last_rsi_3_4h_lt_10):
         return True, f"exit_{mode_name}_d_10_79"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_44)
         and (last_rsi_3_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
-        and (last_stochrsi_k_4h > 25.0)
+        and (last_stochrsi_k_4h_gt_25)
       ):
         return True, f"exit_{mode_name}_d_10_80"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -8.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_81"
       elif (
-        (last_rsi_3 > 84.0)
+        (last_rsi_3_gt_84)
         and (last_willr_14 > -8.0)
         and (last_rsi_3_4h_lt_30)
         and (last_rsi_3_1d < 15.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_10_82"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_stochrsi_k_4h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_10_83"
-      elif (last_rsi_3 > 92.0) and (last_willr_14 > -1.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
+      elif (last_rsi_3_gt_92) and (last_willr_14 > -1.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h > 20.0):
         return True, f"exit_{mode_name}_d_10_84"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -6.0)
         and (last_rsi_3_1h_lt_30)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_85"
       elif (
-        (last_rsi_3 > 96.0)
+        (last_rsi_3_gt_96)
         and (last_rsi_14_4h > 80.0)
         and (last_roc_2_1h < -5.0)
         and (last_roc_9_1h > 5.0)
@@ -37201,105 +37796,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_10_86"
       elif (
-        (last_rsi_3 > 68.0)
-        and (last_rsi_14 < 42.0)
-        and (last_rsi_3_1h < 45.0)
+        (last_rsi_3_gt_68)
+        and (last_rsi_14_lt_42)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_4h < 50.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_87"
       elif (
-        (last_rsi_3 > 90.0)
+        (last_rsi_3_gt_90)
         and (last_willr_14 > -18.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
         and (last_stochrsi_k_4h_gt_50)
         and (last_change_pct_1h < -2.0)
       ):
         return True, f"exit_{mode_name}_d_10_88"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 38.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_38)
         and (last_roc_9_1h < -5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_10_89"
       elif (
-        (last_rsi_3 > 94.0)
+        (last_rsi_3_gt_94)
         and (last_willr_14 > -25.0)
-        and (last_rsi_3_1h < 50.0)
+        and (last_rsi_3_1h_lt_50)
         and (last_rsi_3_4h_lt_30)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_10_90"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 25.0)
-        and (last_rsi_3_4h < 25.0)
-        and (last_aroonu_14_4h > 50.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_25)
+        and (last_rsi_3_4h_lt_25)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_91"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 40.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_40)
         and (last_stochrsi_k_1h > 25.0)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_10_92"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 48.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_48)
         and (last_rsi_3_15m < 50.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_stochrsi_k_1h > 70.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_stochrsi_k_1h_gt_70)
+        and (last_aroonu_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_10_93"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 25.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_25)
         and (last_rsi_3_4h < 45.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 90.0))
       ):
         return True, f"exit_{mode_name}_d_10_94"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -10.0)
-        and (last_rsi_3_1h < 45.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_45)
+        and (last_rsi_3_4h_lt_40)
         and (last_stochrsi_k_4h > 10.0)
         and (isinstance(last_aroonu_14_1d, np.float64) and (last_aroonu_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_10_95"
       elif (
         (last_rsi_3 > 64.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 45.0)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_45)
         and (last_rsi_3_1d < 45.0)
         and (last_stochrsi_k_1h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_96"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 < 44.0)
-        and (last_rsi_3_1h < 35.0)
-        and (last_aroonu_14_4h > 50.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_lt_44)
+        and (last_rsi_3_1h_lt_35)
+        and (last_aroonu_14_4h_gt_50)
+        and (last_stochrsi_k_4h_gt_30)
       ):
         return True, f"exit_{mode_name}_d_10_97"
       elif (
-        (last_rsi_3 > 92.0)
+        (last_rsi_3_gt_92)
         and (last_rsi_3_15m > 74.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
         and (last_rsi_3_1d > 80.0)
         and (last_stochrsi_k_4h_gt_50)
       ):
@@ -37308,202 +37903,200 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 > 62.0)
         and (last_rsi_14_lt_50)
         and (last_rsi_3_1h < 65.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_aroonu_14_4h > 50.0)
+        and (last_rsi_3_4h_lt_60)
+        and (last_aroonu_14_4h_gt_50)
         and (last_stoch_k_4h > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_10_99"
-      elif (last_rsi_3 > 99.0) and (last_rsi_14 > 78.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
+      elif (last_rsi_3_gt_99) and (last_rsi_14 > 78.0) and (last_rsi_3_15m > 70.0) and (last_rsi_3_4h < 80.0):
         return True, f"exit_{mode_name}_d_10_100"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -14.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_4h > 40.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_4h_gt_40)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 40.0))
       ):
         return True, f"exit_{mode_name}_d_10_101"
       elif (
-        (last_rsi_3 > 70.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 40.0)
-        and (last_stochrsi_k_4h > 30.0)
+        (last_rsi_3_gt_70)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_40)
+        and (last_stochrsi_k_4h_gt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
         return True, f"exit_{mode_name}_d_10_102"
       elif (
-        (last_rsi_3 > 80.0)
+        (last_rsi_3_gt_80)
         and (last_rsi_14 < 54.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_14_4h_gt_70)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 80.0))
       ):
         return True, f"exit_{mode_name}_d_10_103"
       elif (
         (last_rsi_3 > 66.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_10_104"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_15m < 55.0)
-        and (last_stochrsi_k_4h > 90.0)
+        and (last_stochrsi_k_4h_gt_90)
         and (last_roc_9_4h > 25.0)
       ):
         return True, f"exit_{mode_name}_d_10_105"
       elif (
-        (last_rsi_3 > 74.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
+        (last_rsi_3_gt_74)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
         and (last_stochrsi_k_1h_gt_50)
-        and (last_rsi_14_4h > 70.0)
+        and (last_rsi_14_4h_gt_70)
         and (last_roc_9_4h > 40.0)
       ):
         return True, f"exit_{mode_name}_d_10_106"
       elif (
         (last_rsi_3 > 76.0)
-        and (last_rsi_14 < 46.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_stochrsi_k_1h > 70.0)
+        and (last_rsi_14_lt_46)
+        and (last_rsi_3_1h_lt_50)
+        and (last_stochrsi_k_1h_gt_70)
         and (last_rsi_14_4h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_10_107"
-      elif (last_rsi_3 > 58.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 60.0) and (last_stochrsi_k_1h > 80.0):
+      elif (last_rsi_3 > 58.0) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_60) and (last_stochrsi_k_1h_gt_80):
         return True, f"exit_{mode_name}_d_10_108"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -6.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_3_4h < 20.0)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_3_4h_lt_20)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 50.0))
       ):
         return True, f"exit_{mode_name}_d_10_109"
-      elif (last_rsi_3 > 74.0) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_gt_74) and (last_rsi_3_4h < 65.0) and (last_stochrsi_k_4h_gt_50) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_10_110"
       elif (
         (last_rsi_3 > 52.0)
-        and (last_rsi_14 < 42.0)
-        and (last_rsi_3_1h < 50.0)
-        and (last_rsi_14_4h > 70.0)
-        and (last_aroonu_14_1h > 75.0)
-        and (last_aroonu_14_4h > 75.0)
+        and (last_rsi_14_lt_42)
+        and (last_rsi_3_1h_lt_50)
+        and (last_rsi_14_4h_gt_70)
+        and (last_aroonu_14_1h_gt_75)
+        and (last_aroonu_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_10_111"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_willr_14 > -20.0)
         and (last_rsi_14_lt_50)
-        and (last_rsi_3_1h < 35.0)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_rsi_3_1d < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_10_112"
       elif (
-        (last_rsi_3 > 86.0)
+        (last_rsi_3_gt_86)
         and (last_willr_14 > -1.0)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
         and (last_stochrsi_k_4h_gt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h > 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_10_113"
       elif (
-        (last_rsi_3 > 86.0)
-        and (last_rsi_14 < 48.0)
-        and (last_rsi_3_1h < 20.0)
+        (last_rsi_3_gt_86)
+        and (last_rsi_14_lt_48)
+        and (last_rsi_3_1h_lt_20)
         and (last_rsi_3_4h_lt_30)
-        and (last_rsi_3_1d < 30.0)
+        and (last_rsi_3_1d_lt_30)
       ):
         return True, f"exit_{mode_name}_d_10_114"
       elif (
-        (last_rsi_3 > 80.0)
-        and (last_rsi_14 < 46.0)
+        (last_rsi_3_gt_80)
+        and (last_rsi_14_lt_46)
         and (last_rsi_3_15m < 30.0)
         and (last_stochrsi_k_1h_gt_50)
         and (last_stochrsi_k_4h_gt_50)
       ):
         return True, f"exit_{mode_name}_d_10_115"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_aroonu_14_4h > 50.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_aroonu_14_4h_gt_50):
         return True, f"exit_{mode_name}_d_10_116"
-      elif (
-        (last_rsi_3 > 88.0) and (last_rsi_3_1h < 50.0) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0)
-      ):
+      elif (last_rsi_3_gt_88) and (last_rsi_3_1h_lt_50) and (last_aroonu_14_1h > 80.0) and (last_aroonu_14_4h > 80.0):
         return True, f"exit_{mode_name}_d_10_117"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h < 60.0) and (last_aroonu_14_4h > 40.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_60) and (last_aroonu_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_10_118"
       elif (
-        (last_rsi_3 > 88.0)
+        (last_rsi_3_gt_88)
         and (last_willr_14 > -20.0)
-        and (last_rsi_3_1h < 60.0)
-        and (last_rsi_3_4h < 60.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_rsi_3_1h_lt_60)
+        and (last_rsi_3_4h_lt_60)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_10_119"
-      elif (last_rsi_3 > 56.0) and (last_rsi_14 < 46.0) and (last_rsi_3_1h < 40.0) and (last_aroonu_14_4h > 75.0):
+      elif (last_rsi_3 > 56.0) and (last_rsi_14_lt_46) and (last_rsi_3_1h_lt_40) and (last_aroonu_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_10_120"
-      elif (last_rsi_3 > 62.0) and (last_rsi_14 < 44.0) and (last_rsi_3_1h < 50.0) and (last_rsi_14_4h > 85.0):
+      elif (last_rsi_3 > 62.0) and (last_rsi_14_lt_44) and (last_rsi_3_1h_lt_50) and (last_rsi_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_10_121"
-      elif (last_rsi_3 > 60.0) and (last_rsi_14 < 42.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
+      elif (last_rsi_3 > 60.0) and (last_rsi_14_lt_42) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_1h_gt_50):
         return True, f"exit_{mode_name}_d_10_122"
-      elif (last_rsi_3 > 90.0) and (last_willr_14 > -2.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_1d < 30.0):
+      elif (last_rsi_3_gt_90) and (last_willr_14 > -2.0) and (last_rsi_3_1h_lt_10) and (last_rsi_3_1d_lt_30):
         return True, f"exit_{mode_name}_d_10_123"
       elif (
-        (last_rsi_3 > 90.0)
-        and (last_rsi_3_1h < 15.0)
+        (last_rsi_3_gt_90)
+        and (last_rsi_3_1h_lt_15)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_10_124"
       elif (
-        (last_rsi_3 > 78.0)
+        (last_rsi_3_gt_78)
         and (last_willr_14 > -2.0)
-        and (last_rsi_3_1h < 10.0)
-        and (last_rsi_3_4h < 40.0)
+        and (last_rsi_3_1h_lt_10)
+        and (last_rsi_3_4h_lt_40)
         and (last_rsi_3_1d < 40.0)
         and (last_close < (last_high_max_30_1d * 0.50))
       ):
         return True, f"exit_{mode_name}_d_10_125"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 15.0) and (last_rsi_3_4h < 40.0) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_15) and (last_rsi_3_4h_lt_40) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_10_126"
-      elif (last_rsi_3 > 92.0) and (last_rsi_3_1h < 10.0) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
+      elif (last_rsi_3_gt_92) and (last_rsi_3_1h_lt_10) and (last_rsi_3_4h_lt_30) and (last_rsi_3_1d < 40.0):
         return True, f"exit_{mode_name}_d_10_127"
-      elif (last_rsi_3 > 96.0) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
+      elif (last_rsi_3_gt_96) and (last_rsi_3_4h_lt_30) and (last_aroonu_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_10_128"
       elif (
-        (last_rsi_3 > 88.0)
-        and (last_rsi_3_4h < 25.0)
+        (last_rsi_3_gt_88)
+        and (last_rsi_3_4h_lt_25)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 80.0))
       ):
         return True, f"exit_{mode_name}_d_10_129"
       elif (
         (last_rsi_3 > 76.0)
         and (last_rsi_14_1h > 65.0)
-        and (last_stochrsi_k_1h > 80.0)
+        and (last_stochrsi_k_1h_gt_80)
         and (last_cci_20_change_pct_1h < -0.0)
       ):
         return True, f"exit_{mode_name}_d_10_130"
-      elif (last_rsi_14 < 36.0) and (last_rsi_3_1h < 20.0) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
+      elif (last_rsi_14 < 36.0) and (last_rsi_3_1h_lt_20) and (last_rsi_3_4h_lt_30) and (last_stochrsi_k_4h_gt_50):
         return True, f"exit_{mode_name}_d_10_131"
       elif (
-        (last_rsi_3 > 82.0)
-        and (last_rsi_3_1h < 35.0)
+        (last_rsi_3_gt_82)
+        and (last_rsi_3_1h_lt_35)
         and (last_rsi_3_4h < 35.0)
         and (last_aroonu_14_1h > 50.0)
-        and (last_stochrsi_k_1h > 40.0)
+        and (last_stochrsi_k_1h_gt_40)
       ):
         return True, f"exit_{mode_name}_d_10_132"
       elif (
-        (last_rsi_3 > 82.0)
+        (last_rsi_3_gt_82)
         and (last_aroonu_14_15m > 75.0)
-        and (last_aroonu_14_1h > 75.0)
+        and (last_aroonu_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_10_133"
@@ -39359,10 +39952,15 @@ class NostalgiaForInfinityX7(IStrategy):
       profit_values = self.calc_total_profit(trade, filled_entries, filled_exits, exit_rate)
     profit_stake, profit_ratio, profit_current_stake_ratio, profit_init_ratio = profit_values
 
+    first_filled_order = filled_orders[0]
+    last_filled_order = filled_orders[-1]
+    first_filled_entry = filled_entries[0]
+    last_filled_entry = filled_entries[-1]
+
     current_stake_amount = trade_amount * exit_rate
-    slice_amount = filled_entries[0].cost
-    slice_profit = (exit_rate - filled_orders[-1].safe_price) / filled_orders[-1].safe_price
-    slice_profit_entry = (exit_rate - filled_entries[-1].safe_price) / filled_entries[-1].safe_price
+    slice_amount = first_filled_entry.cost
+    slice_profit = (exit_rate - last_filled_order.safe_price) / last_filled_order.safe_price
+    slice_profit_entry = (exit_rate - last_filled_entry.safe_price) / last_filled_entry.safe_price
     slice_profit_exit = (
       ((exit_rate - filled_exits[-1].safe_price) / filled_exits[-1].safe_price) if count_of_exits > 0 else 0.0
     )
@@ -39372,7 +39970,7 @@ class NostalgiaForInfinityX7(IStrategy):
       and all(c in (long_rebuy_mode_tags + long_grind_mode_tags) for c in enter_tags)
     )
 
-    has_order_tags = hasattr(filled_orders[0], "ft_order_tag")
+    has_order_tags = hasattr(first_filled_order, "ft_order_tag")
 
     fee_open_rate = trade_fee_open if self.custom_fee_open_rate is None else self.custom_fee_open_rate
     fee_close_rate = trade_fee_close if self.custom_fee_close_rate is None else self.custom_fee_close_rate
@@ -39605,7 +40203,7 @@ class NostalgiaForInfinityX7(IStrategy):
     grind_5_exit_order = None
     grind_5_exit_distance_ratio = 0.0
     for order in reversed(filled_orders):
-      if (order.ft_order_side == "buy") and (order is not filled_orders[0]):
+      if (order.ft_order_side == "buy") and (order is not first_filled_order):
         order_tag = ""
         if has_order_tags:
           if order.ft_order_tag is not None:
@@ -39840,11 +40438,11 @@ class NostalgiaForInfinityX7(IStrategy):
     )
 
     is_long_extra_checks_entry = (
-      (current_time - timedelta(minutes=5) > filled_entries[-1].order_filled_utc)
-      and ((current_time - timedelta(hours=2) > filled_orders[-1].order_filled_utc) or (slice_profit < -0.06))
+      (current_time - timedelta(minutes=5) > last_filled_entry.order_filled_utc)
+      and ((current_time - timedelta(hours=2) > last_filled_order.order_filled_utc) or (slice_profit < -0.06))
       and (
-        (current_stake_amount < (filled_entries[0].cost * 0.50))
-        or (current_time - timedelta(hours=6) > filled_orders[-1].order_filled_utc)
+        (current_stake_amount < (first_filled_entry.cost * 0.50))
+        or (current_time - timedelta(hours=6) > last_filled_order.order_filled_utc)
         or (slice_profit < -0.06)
       )
     )
@@ -39942,7 +40540,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_1_stake_futures if is_futures else self.grinding_v2_derisk_level_1_stake_spot
           )
@@ -40029,7 +40627,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_2_stake_futures if is_futures else self.grinding_v2_derisk_level_2_stake_spot
           )
@@ -40116,7 +40714,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_3_stake_futures if is_futures else self.grinding_v2_derisk_level_3_stake_spot
           )
@@ -41304,6 +41902,9 @@ class NostalgiaForInfinityX7(IStrategy):
   def long_buyback_entry_v2(
     self, last_candle: Series, previous_candle: Series, slice_profit: float, is_derisk: bool
   ) -> float:
+    previous_ema_26 = previous_candle["EMA_26"]
+    previous_ema_12 = previous_candle["EMA_12"]
+
     last_rsi_3_1d = last_candle["RSI_3_1d"]
     last_roc_9_1h = last_candle["ROC_9_1h"]
     last_roc_9_4h = last_candle["ROC_9_4h"]
@@ -41334,6 +41935,7 @@ class NostalgiaForInfinityX7(IStrategy):
     last_stochrsi_k_4h = last_candle["STOCHRSIk_14_14_3_3_4h"]
     last_roc_2_1d = last_candle["ROC_2_1d"]
     last_ema_16 = last_candle["EMA_16"]
+    last_bbl_20 = last_candle["BBL_20_2.0"]
 
     if (last_protections_long_global == True) and (
       (last_enter_long == True)
@@ -41374,7 +41976,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_roc_9_1d > -5.0)
         and (last_ema_26 > last_ema_12)
         and ((last_ema_26 - last_ema_12) > (last_open * 0.020))
-        and ((previous_candle["EMA_26"] - previous_candle["EMA_12"]) > (last_open / 100.0))
+        and ((previous_ema_26 - previous_ema_12) > (last_open / 100.0))
       )
       or (
         (last_rsi_14 < 36.0)
@@ -41416,7 +42018,7 @@ class NostalgiaForInfinityX7(IStrategy):
         # and (last_candle["close"] > (last_candle["high_max_6_1h"] * 0.85))
         # and (last_candle["close"] > (last_candle["high_max_12_1h"] * 0.80))
         and (last_close < (last_ema_26 * 0.960))
-        and (last_close < (last_candle["BBL_20_2.0"] * 0.999))
+        and (last_close < (last_bbl_20 * 0.999))
       )
     ):
       return True
@@ -41716,13 +42318,16 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_3 = last_candle["RSI_3"]
     last_rsi_14 = last_candle["RSI_14"]
     last_willr_14 = last_candle["WILLR_14"]
+    last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
+    last_close = last_candle["close"]
+    last_bbu_20 = last_candle["BBU_20_2.0"]
 
     if (
       (last_rsi_3 > 99.0)
       or (last_rsi_14 > 70.0)
       or (last_willr_14 > -0.1)
-      or (last_candle["STOCHRSIk_14_14_3_3"] > 95.0)
-      or (last_candle["close"] > (last_candle["BBU_20_2.0"] * 1.01))
+      or (last_stochrsi_k > 95.0)
+      or (last_close > (last_bbu_20 * 1.01))
       or ((last_rsi_3 > 90.0) and (last_rsi_14 < 50.0))
     ):
       return True
@@ -41735,13 +42340,16 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_3 = last_candle["RSI_3"]
     last_rsi_14 = last_candle["RSI_14"]
     last_willr_14 = last_candle["WILLR_14"]
+    last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
+    last_close = last_candle["close"]
+    last_bbu_20 = last_candle["BBU_20_2.0"]
 
     if (
       (last_rsi_3 > 99.0)
       or (last_rsi_14 > 70.0)
       or (last_willr_14 > -0.1)
-      or (last_candle["STOCHRSIk_14_14_3_3"] > 95.0)
-      or (last_candle["close"] > (last_candle["BBU_20_2.0"] * 1.01))
+      or (last_stochrsi_k > 95.0)
+      or (last_close > (last_bbu_20 * 1.01))
       or ((last_rsi_3 > 90.0) and (last_rsi_14 < 50.0))
     ):
       return True
@@ -43728,7 +44336,8 @@ class NostalgiaForInfinityX7(IStrategy):
     trade_fee_open = trade.fee_open
     trade_fee_close = trade.fee_close
 
-    is_backtest = dp.runmode.value in ["backtest", "hyperopt"]
+    runmode_value = dp.runmode.value
+    is_backtest = runmode_value in ["backtest", "hyperopt"]
     trade_open_date = None if is_backtest else trade.open_date_utc.replace(tzinfo=None)
     # we already waiting for an order to get filled
     if trade.has_open_orders:
@@ -43763,7 +44372,7 @@ class NostalgiaForInfinityX7(IStrategy):
 
     has_order_tags = hasattr(filled_orders[0], "ft_order_tag")
 
-    if dp.runmode.value in ("live", "dry_run"):
+    if runmode_value in ("live", "dry_run"):
       ticker = dp.ticker(trade_pair)
       if ("bid" in ticker) and ("ask" in ticker):
         exit_price_side = self.config["exit_pricing"]["price_side"]
@@ -47665,7 +48274,7 @@ class NostalgiaForInfinityX7(IStrategy):
           )
         )
         log.info(
-          f"Rebuy (r) [{current_time}] [{trade.pair}] | Rate: {current_rate} | Stake amount: {buy_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
+          f"Rebuy (r) [{current_time}] [{trade_pair}] | Rate: {current_rate} | Stake amount: {buy_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
         )
         if has_order_tags:
           return buy_amount, "r"
@@ -47686,14 +48295,14 @@ class NostalgiaForInfinityX7(IStrategy):
         grind_profit = 0.0
         dp.send_msg(
           f"❌​​ ​**Rebuy De-risk:** `Level 3`\n"
-          f"🪙​ **Pair:** `{trade.pair}`\n"
+          f"🪙​ **Pair:** `{trade_pair}`\n"
           f"〽️​ **Rate:** `{exit_rate}`\n"
           f"💰 **Stake amount:** `{sell_amount}`\n"
           f"💵​ **Profit (stake):** `{profit_stake}`\n"
           f"💸 **Profit (percent):** `{(profit_ratio * 100.0):.2f}%`"
         )
         log.info(
-          f"Rebuy De-risk Level 3 [{current_time}] [{trade.pair}] | Rate: {exit_rate} | Stake amount: {sell_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
+          f"Rebuy De-risk Level 3 [{current_time}] [{trade_pair}] | Rate: {exit_rate} | Stake amount: {sell_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
         )
         if has_order_tags:
           return -ft_sell_amount, "derisk_level_3"
@@ -50091,11 +50700,18 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_14 = last_candle["RSI_14"]
     last_close = last_candle["close"]
     last_ema_200 = last_candle["EMA_200"]
+    last_ema_50 = last_candle["EMA_50"]
+    last_rsi_14_1h = last_candle["RSI_14_1h"]
     last_bbl_20 = last_candle["BBL_20_2.0"]
+    last_bbl_20_1h = last_candle["BBL_20_2.0_1h"]
     previous_1_close = previous_candle_1["close"]
     previous_1_bbl_20 = previous_candle_1["BBL_20_2.0"]
     previous_2_close = previous_candle_2["close"]
     previous_2_bbl_20 = previous_candle_2["BBL_20_2.0"]
+    previous_3_close = previous_candle_3["close"]
+    previous_3_bbl_20 = previous_candle_3["BBL_20_2.0"]
+    previous_4_close = previous_candle_4["close"]
+    previous_4_bbl_20 = previous_candle_4["BBL_20_2.0"]
 
     # Sell signal 1
     if (
@@ -50103,8 +50719,8 @@ class NostalgiaForInfinityX7(IStrategy):
       and (last_close < last_bbl_20)
       and (previous_1_close < previous_1_bbl_20)
       and (previous_2_close < previous_2_bbl_20)
-      and (previous_candle_3["close"] < previous_candle_3["BBL_20_2.0"])
-      and (previous_candle_4["close"] < previous_candle_4["BBL_20_2.0"])
+      and (previous_3_close < previous_3_bbl_20)
+      and (previous_4_close < previous_4_bbl_20)
     ):
       if last_close < last_ema_200:
         if current_profit > 0.01:
@@ -50137,7 +50753,7 @@ class NostalgiaForInfinityX7(IStrategy):
           return True, f"exit_{mode_name}_3_2_1"
 
     # Sell signal 4
-    elif (last_rsi_14 < 16.0) and (last_candle["RSI_14_1h"] < 20.0):
+    elif (last_rsi_14 < 16.0) and (last_rsi_14_1h < 20.0):
       if last_close < last_ema_200:
         if current_profit > 0.01:
           return True, f"exit_{mode_name}_4_1_1"
@@ -50146,7 +50762,7 @@ class NostalgiaForInfinityX7(IStrategy):
           return True, f"exit_{mode_name}_4_2_1"
 
     # Sell signal 6
-    elif (last_close > last_ema_200) and (last_close < last_candle["EMA_50"]) and (last_rsi_14 < 21.0):
+    elif (last_close > last_ema_200) and (last_close < last_ema_50) and (last_rsi_14 < 21.0):
       if current_profit > 0.01:
         return True, f"exit_{mode_name}_6_1"
 
@@ -50160,7 +50776,7 @@ class NostalgiaForInfinityX7(IStrategy):
     #       return True, f"exit_{mode_name}_7_2_1"
 
     # Sell signal 8
-    elif last_close < last_candle["BBL_20_2.0_1h"] * 0.86:
+    elif last_close < last_bbl_20_1h * 0.86:
       if last_close < last_ema_200:
         if current_profit > 0.01:
           return True, f"exit_{mode_name}_8_1_1"
@@ -51708,9 +52324,60 @@ class NostalgiaForInfinityX7(IStrategy):
     last_rsi_3_4h_gt_70 = last_rsi_3_4h > 70.0
 
     if 0.01 > current_profit >= 0.001:
+      # Reused short exit decision threshold checks for this profit bracket
+      last_rsi_3_lt_5 = last_rsi_3 < 5.0
+      last_rsi_3_lt_1 = last_rsi_3 < 1.0
+      last_rsi_3_lt_2 = last_rsi_3 < 2.0
+      last_rsi_14_gt_54 = last_rsi_14 > 54.0
+      last_rsi_3_4h_gt_80 = last_rsi_3_4h > 80.0
+      last_rsi_3_4h_gt_90 = last_rsi_3_4h > 90.0
+      last_rsi_3_1h_gt_80 = last_rsi_3_1h > 80.0
+      last_rsi_14_gt_56 = last_rsi_14 > 56.0
+      last_rsi_14_lt_22 = last_rsi_14 < 22.0
+      last_rsi_3_lt_10 = last_rsi_3 < 10.0
+      last_rsi_3_1h_gt_85 = last_rsi_3_1h > 85.0
+      last_rsi_3_1h_gt_50 = last_rsi_3_1h > 50.0
+      last_rsi_3_1h_gt_90 = last_rsi_3_1h > 90.0
+      last_rsi_3_1h_gt_75 = last_rsi_3_1h > 75.0
+      last_rsi_3_4h_gt_60 = last_rsi_3_4h > 60.0
+      last_rsi_3_4h_gt_75 = last_rsi_3_4h > 75.0
+      last_rsi_14_gt_60 = last_rsi_14 > 60.0
+      last_rsi_3_1h_gt_40 = last_rsi_3_1h > 40.0
+      last_stochrsi_k_4h_lt_60 = last_stochrsi_k_4h < 60.0
+      last_rsi_14_gt_58 = last_rsi_14 > 58.0
+      last_stochrsi_k_4h_lt_80 = last_stochrsi_k_4h < 80.0
+      last_change_pct_1d_gt_5 = last_change_pct_1d > 5.0
+      last_stochrsi_k_4h_lt_10 = last_stochrsi_k_4h < 10.0
+      last_rsi_3_4h_gt_85 = last_rsi_3_4h > 85.0
+      last_stochrsi_k_1h_lt_30 = last_stochrsi_k_1h < 30.0
+      last_stochrsi_k_4h_lt_70 = last_stochrsi_k_4h < 70.0
+      last_rsi_3_1d_gt_75 = last_rsi_3_1d > 75.0
+      last_rsi_3_lt_16 = last_rsi_3 < 16.0
+      last_rsi_3_lt_4 = last_rsi_3 < 4.0
+      last_stochrsi_k_1h_lt_20 = last_stochrsi_k_1h < 20.0
+      last_rsi_14_gt_52 = last_rsi_14 > 52.0
+      last_stochrsi_k_1h_lt_60 = last_stochrsi_k_1h < 60.0
+      last_aroond_14_1h_gt_75 = last_aroond_14_1h > 75.0
+      last_rsi_3_4h_gt_40 = last_rsi_3_4h > 40.0
+      last_stochrsi_k_lt_5 = last_stochrsi_k < 5.0
+      last_roc_9_1h_gt_10 = last_roc_9_1h > 10.0
+      last_change_pct_4h_gt_5 = last_change_pct_4h > 5.0
+      last_aroond_14_4h_gt_25 = last_aroond_14_4h > 25.0
+      last_aroond_14_4h_gt_75 = last_aroond_14_4h > 75.0
+      last_stochrsi_k_1h_lt_70 = last_stochrsi_k_1h < 70.0
+      last_stochrsi_k_4h_lt_75 = last_stochrsi_k_4h < 75.0
+      last_rsi_14_gt_62 = last_rsi_14 > 62.0
+      last_rsi_3_1h_gt_60 = last_rsi_3_1h > 60.0
+      last_rsi_3_1h_gt_55 = last_rsi_3_1h > 55.0
+      last_aroonu_14_4h_lt_50 = last_aroonu_14_4h < 50.0
+      last_aroond_14_4h_gt_50 = last_aroond_14_4h > 50.0
+      last_rsi_3_1h_gt_65 = last_rsi_3_1h > 65.0
+      last_rsi_3_lt_8 = last_rsi_3 < 8.0
+      last_rsi_14_4h_lt_30 = last_rsi_14_4h < 30.0
+      last_rsi_3_1d_gt_70 = last_rsi_3_1d > 70.0
       if (
         (last_willr_14 < -99.0)
-        and (last_rsi_14 < 22.0)
+        and (last_rsi_14_lt_22)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h > last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
         and (last_kst_1h > last_ksts_9_1h)
@@ -51719,7 +52386,7 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_0_1"
       elif (
         (last_willr_14 <= -99.0)
-        and (last_rsi_14 < 22.0)
+        and (last_rsi_14_lt_22)
         and (last_cmf_20_1h > 0.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h > last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
@@ -51730,31 +52397,31 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 1.0)
         and (last_cmf_20_1h > 0.0)
         and (last_cmf_20_4h > 0.0)
-        and ((last_stochrsi_k_4h < 80.0) and (last_stochrsi_k_change_pct_4h > 10.0))
+        and ((last_stochrsi_k_4h_lt_80) and (last_stochrsi_k_change_pct_4h > 10.0))
       ):
         return True, f"exit_{mode_name}_d_0_3"
       elif (
         (last_willr_14 <= -99.0)
-        and (last_rsi_14 < 22.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_rsi_14_lt_22)
+        and (last_stochrsi_k_lt_5)
         and (last_stochrsi_k_4h < 30.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h > last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_0_4"
-      elif (last_willr_14 <= -99.0) and (last_rsi_14 < 22.0) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
+      elif (last_willr_14 <= -99.0) and (last_rsi_14_lt_22) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
         return True, f"exit_{mode_name}_d_0_5"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_stochrsi_k < 5.0)
-        and (last_rsi_14 > 60.0)
-        and (last_roc_9_1h > 10.0)
+        (last_rsi_3_lt_5)
+        and (last_stochrsi_k_lt_5)
+        and (last_rsi_14_gt_60)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_0_6"
       elif (
         (last_rsi_14_gt_50)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 40.0))
       ):
@@ -51764,136 +52431,136 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 1.0)
         and (last_cmf_20_1h > 0.1)
         and (last_cmf_20_4h > 0.1)
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_0_8"
       elif (
         (last_willr_14 < -99.0)
-        and (last_rsi_3 < 1.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_rsi_3_lt_1)
+        and (last_change_pct_4h_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_9"
       elif (
         (last_willr_14 < -99.0)
         and (last_rsi_14_gt_50)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (last_roc_9_4h > 10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_0_10"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14 > 55.0)
         and (last_roc_9_15m > 10.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_0_11"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_1h > 20.0)
         and (last_roc_9_4h > 20.0)
       ):
         return True, f"exit_{mode_name}_d_0_12"
-      elif (last_rsi_3 < 1.0) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_lt_1) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_0_13"
-      elif (last_rsi_3 < 1.0) and (last_willr_14 < -99.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_1) and (last_willr_14 < -99.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_0_14"
-      elif (last_rsi_3 < 1.0) and (last_rsi_14 < 22.0) and (last_roc_9_4h > 30.0):
+      elif (last_rsi_3_lt_1) and (last_rsi_14_lt_22) and (last_roc_9_4h > 30.0):
         return True, f"exit_{mode_name}_d_0_15"
       elif (
-        (last_rsi_3 < 1.0)
-        and (last_aroond_14_4h > 25.0)
+        (last_rsi_3_lt_1)
+        and (last_aroond_14_4h_gt_25)
         and (last_roc_9_4h > 25.0)
         and (last_aroond_14_1d > 50.0)
         and (last_change_pct_1d > 15.0)
       ):
         return True, f"exit_{mode_name}_d_0_16"
       elif (
-        (last_rsi_3 < 1.0)
+        (last_rsi_3_lt_1)
         and (last_willr_14 < -99.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -30.0)
       ):
         return True, f"exit_{mode_name}_d_0_17"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 < 25.0) and (last_rsi_3_4h > 80.0) and (last_roc_2_1d > 50.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14 < 25.0) and (last_rsi_3_4h_gt_80) and (last_roc_2_1d > 50.0):
         return True, f"exit_{mode_name}_d_0_18"
       elif (
-        (last_rsi_3 < 1.0)
-        and (last_rsi_14 < 22.0)
-        and (last_rsi_3_4h > 90.0)
+        (last_rsi_3_lt_1)
+        and (last_rsi_14_lt_22)
+        and (last_rsi_3_4h_gt_90)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_19"
-      elif (last_rsi_3 < 10.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_1h > 25.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_90) and (last_aroond_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_0_20"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_4h < 10.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_4h_lt_10):
         return True, f"exit_{mode_name}_d_0_21"
       elif (
-        (last_rsi_3 < 1.0)
+        (last_rsi_3_lt_1)
         and (last_willr_14 < -99.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_22"
-      elif (last_rsi_3 < 2.0) and (last_willr_14 < -95.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_1d > 95.0):
+      elif (last_rsi_3_lt_2) and (last_willr_14 < -95.0) and (last_rsi_3_1h_gt_85) and (last_rsi_3_1d > 95.0):
         return True, f"exit_{mode_name}_d_0_23"
       elif (
-        (last_rsi_3 < 1.0)
-        and (last_rsi_14 < 22.0)
+        (last_rsi_3_lt_1)
+        and (last_rsi_14_lt_22)
         and (last_willr_14 < -95.0)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroond_14_4h > 75.0)
+        and (last_aroond_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_0_24"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -98.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_4h > 15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_25"
-      elif (last_rsi_3 < 5.0) and (last_willr_14 < -99.0) and (last_rsi_3_4h > 85.0) and (last_roc_9_4h > 20.0):
+      elif (last_rsi_3_lt_5) and (last_willr_14 < -99.0) and (last_rsi_3_4h_gt_85) and (last_roc_9_4h > 20.0):
         return True, f"exit_{mode_name}_d_0_26"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_4h < 80.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_4h_lt_80)
       ):
         return True, f"exit_{mode_name}_d_0_27"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
         return True, f"exit_{mode_name}_d_0_28"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_1h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_0_29"
-      elif (last_rsi_3 < 1.0) and (last_rsi_3_1h > 75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 30.0):
+      elif (last_rsi_3_lt_1) and (last_rsi_3_1h_gt_75) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_30):
         return True, f"exit_{mode_name}_d_0_30"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 85.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_85)
         and (last_stochrsi_k_1h < 75.0)
       ):
         return True, f"exit_{mode_name}_d_0_31"
-      elif (last_rsi_3 < 5.0) and (last_rsi_3_1h > 85.0) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h < 70.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_3_1h_gt_85) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_0_32"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -99.0)
         and (last_roc_2_1h > 10.0)
         and (last_roc_9_1h < -30.0)
@@ -51902,127 +52569,127 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_0_33"
       elif (last_rsi_3 < 35.0) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
         return True, f"exit_{mode_name}_d_0_34"
-      elif (last_rsi_3 < 5.0) and (last_willr_14 < -95.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 25.0):
+      elif (last_rsi_3_lt_5) and (last_willr_14 < -95.0) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h < 25.0):
         return True, f"exit_{mode_name}_d_0_35"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -99.0)
         and (last_roc_9_4h > 25.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_36"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h < 80.0)
         and (last_rsi_3_1d < 75.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_37"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -90.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -90.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_0_38"
-      elif (last_rsi_3 < 1.0) and (last_willr_14 < -99.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_1) and (last_willr_14 < -99.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_0_39"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -98.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_stochrsi_k_1h_lt_70)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_0_40"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -95.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_0_41"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -98.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_stochrsi_k_4h_lt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_42"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_60)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_0_43"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -98.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 25.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_0_44"
-      elif (last_rsi_3 < 4.0) and (last_willr_14 < -96.0) and (last_rsi_3_1h > 90.0):
+      elif (last_rsi_3_lt_4) and (last_willr_14 < -96.0) and (last_rsi_3_1h_gt_90):
         return True, f"exit_{mode_name}_d_0_45"
-      elif (last_rsi_3 < 2.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 90.0) and (last_roc_2_1d > 20.0):
+      elif (last_rsi_3_lt_2) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_90) and (last_roc_2_1d > 20.0):
         return True, f"exit_{mode_name}_d_0_46"
       elif (
-        (last_rsi_3 < 2.0)
-        and (last_stochrsi_k_1h < 20.0)
-        and (last_stochrsi_k_4h < 60.0)
-        and (last_change_pct_1d > 5.0)
+        (last_rsi_3_lt_2)
+        and (last_stochrsi_k_1h_lt_20)
+        and (last_stochrsi_k_4h_lt_60)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 5.0))
       ):
         return True, f"exit_{mode_name}_d_0_47"
       elif (
         (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 58.0)
+        and (last_rsi_14_gt_58)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_48"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -98.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_change_pct_1d > 5.0)
+        and (last_rsi_3_4h_gt_80)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_49"
       elif (last_rsi_3 < 20.0) and (last_willr_14 < -98.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
         return True, f"exit_{mode_name}_d_0_50"
-      elif (last_rsi_3 < 32.0) and (last_rsi_14 > 56.0) and (last_rsi_3_4h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3 < 32.0) and (last_rsi_14_gt_56) and (last_rsi_3_4h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_0_51"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14 < 38.0)
         and (last_willr_14 < -90.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_stochrsi_k_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
       ):
         return True, f"exit_{mode_name}_d_0_52"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
         and (last_willr_14 < -95.0)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_53"
       elif (
         (last_rsi_3 < 20.0)
-        and (last_rsi_14 > 56.0)
+        and (last_rsi_14_gt_56)
         and (last_stochrsi_k_1h_lt_50)
         and (last_roc_9_4h > 10.0)
         and (last_change_pct_1d > 10.0)
       ):
         return True, f"exit_{mode_name}_d_0_54"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -88.0)
         and (last_roc_9_4h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
@@ -52030,10 +52697,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_55"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 90.0)
       ):
@@ -52046,7 +52713,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_57"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
@@ -52054,158 +52721,154 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_58"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_0_59"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 62.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_62)
         and (last_rsi_14_4h < 35.0)
         and (last_stochrsi_k_4h_lt_50)
         and (last_stochrsi_k_1d < 50.0)
       ):
         return True, f"exit_{mode_name}_d_0_60"
-      elif (last_rsi_3 < 2.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 70.0):
+      elif (last_rsi_3_lt_2) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_70):
         return True, f"exit_{mode_name}_d_0_61"
       elif (
         (last_rsi_3 < 12.0)
         and (last_willr_14 < -99.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
       ):
         return True, f"exit_{mode_name}_d_0_62"
-      elif (
-        (last_rsi_3 < 2.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 20.0) and (last_stochrsi_k_4h < 70.0)
-      ):
+      elif (last_rsi_3_lt_2) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h_lt_20) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_0_63"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_64"
-      elif (last_rsi_3 < 10.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 85.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_85):
         return True, f"exit_{mode_name}_d_0_65"
-      elif (last_rsi_3 < 16.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_16) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_0_66"
       elif (
         (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 60.0)
+        and (last_rsi_14_gt_60)
         and (last_stochrsi_k_4h < 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_0_67"
       elif (
         (last_rsi_3 < 14.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 75.0)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_75)
         and (last_roc_2_4h > 30.0)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_0_68"
-      elif (
-        (last_rsi_3 < 3.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h > 5.0)
-      ):
+      elif (last_rsi_3 < 3.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h_gt_5):
         return True, f"exit_{mode_name}_d_0_69"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 62.0) and (last_rsi_3_1h > 75.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_62) and (last_rsi_3_1h_gt_75) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_0_70"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 58.0) and (last_rsi_3_4h > 75.0) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_58) and (last_rsi_3_4h_gt_75) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_0_71"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_90) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_0_72"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 85.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_85)
         and (last_roc_9_4h > 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_0_73"
       elif (
-        (last_rsi_3 < 1.0)
+        (last_rsi_3_lt_1)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_4h_gt_75)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_0_74"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_75"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 52.0) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_52) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
         return True, f"exit_{mode_name}_d_0_76"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 56.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_56)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_0_77"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -86.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_rsi_3_1d > 80.0)
       ):
         return True, f"exit_{mode_name}_d_0_78"
-      elif (last_rsi_3 < 6.0) and (last_willr_14 < -99.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3 < 6.0) and (last_willr_14 < -99.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_0_79"
       elif (
         (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 56.0)
+        and (last_rsi_14_gt_56)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_0_80"
       elif (
-        (last_rsi_3 < 4.0)
+        (last_rsi_3_lt_4)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_81"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -92.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 85.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_0_82"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_0_83"
-      elif (last_rsi_3 < 1.0) and (last_willr_14 < -99.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_1) and (last_willr_14 < -99.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_0_84"
       elif (
-        (last_rsi_3 < 1.0)
+        (last_rsi_3_lt_1)
         and (last_willr_14 < -94.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_85"
       elif (
-        (last_rsi_3 < 4.0)
+        (last_rsi_3_lt_4)
         and (last_rsi_14_4h < 20.0)
         and (last_roc_2_1h > 5.0)
         and (last_roc_9_1h < -5.0)
@@ -52213,24 +52876,24 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_0_86"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 58.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_58)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_4h > 50.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_87"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -98.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
         and (last_stochrsi_k_4h_lt_50)
         and (last_change_pct_1h > 2.0)
       ):
         return True, f"exit_{mode_name}_d_0_88"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 > 62.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_gt_62)
         and (last_roc_9_1h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -52238,286 +52901,346 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 6.0)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_0_90"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_aroonu_14_4h < 50.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_0_91"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h < 75.0)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_0_92"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_15m > 50.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_stochrsi_k_1h < 30.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_aroond_14_1h_gt_75)
+        and (last_stochrsi_k_1h_lt_30)
+        and (last_aroond_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_93"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_75)
         and (last_rsi_3_4h > 55.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_0_94"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_1h > 55.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_55)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h < 90.0)
         and (isinstance(last_aroond_14_1d, np.float64) and (last_aroond_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_0_95"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_1d > 55.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_96"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 65.0)
-        and (last_aroond_14_4h > 50.0)
-        and (last_stochrsi_k_4h < 70.0)
+        (last_rsi_3_lt_16)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_65)
+        and (last_aroond_14_4h_gt_50)
+        and (last_stochrsi_k_4h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_0_97"
       elif (
-        (last_rsi_3 < 8.0)
+        (last_rsi_3_lt_8)
         and (last_rsi_3_15m < 26.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
         and (last_rsi_3_1d < 20.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_98"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h > 35.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_rsi_3_4h_gt_40)
+        and (last_aroond_14_4h_gt_50)
         and (last_stoch_k_4h < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_0_99"
-      elif (last_rsi_3 < 1.0) and (last_rsi_14 < 22.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
+      elif (last_rsi_3_lt_1) and (last_rsi_14_lt_22) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
         return True, f"exit_{mode_name}_d_0_100"
       elif (
         (last_rsi_3 < 14.0)
         and (last_willr_14 < -86.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_4h_lt_60)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -40.0))
       ):
         return True, f"exit_{mode_name}_d_0_101"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 60.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_0_102"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_14_4h_lt_30)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -80.0))
       ):
         return True, f"exit_{mode_name}_d_0_103"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
-        and (last_stochrsi_k_4h < 10.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_0_104"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
         and (last_rsi_3_15m > 45.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -25.0)
       ):
         return True, f"exit_{mode_name}_d_0_105"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 50.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_50)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_14_4h_lt_30)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_0_106"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_1h < 30.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_1h_lt_30)
         and (last_rsi_14_4h < 50.0)
       ):
         return True, f"exit_{mode_name}_d_0_107"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 40.0) and (last_stochrsi_k_1h < 20.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_40) and (last_stochrsi_k_1h_lt_20):
         return True, f"exit_{mode_name}_d_0_108"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -94.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_0_109"
-      elif (last_rsi_3 < 5.0) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_0_110"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 58.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_14_4h < 30.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_aroond_14_4h > 75.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_58)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_14_4h_lt_30)
+        and (last_aroond_14_1h_gt_75)
+        and (last_aroond_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
       ):
         return True, f"exit_{mode_name}_d_0_111"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -80.0)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 65.0)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_rsi_3_1d > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_0_112"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -99.0)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
       ):
         return True, f"exit_{mode_name}_d_0_113"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 80.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_80)
         and (last_rsi_3_4h_gt_70)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
       ):
         return True, f"exit_{mode_name}_d_0_114"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_14_gt_54)
         and (last_rsi_3_15m > 70.0)
         and (last_stochrsi_k_1h_lt_50)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_0_115"
-      elif (last_rsi_3 < 8.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_aroonu_14_4h < 50.0):
+      elif (last_rsi_3_lt_8) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_aroonu_14_4h_lt_50):
         return True, f"exit_{mode_name}_d_0_116"
-      elif (last_rsi_3 < 5.0) and (last_rsi_3_1h > 50.0) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_3_1h_gt_50) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
         return True, f"exit_{mode_name}_d_0_117"
-      elif (last_rsi_3 < 8.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 40.0) and (last_aroond_14_4h > 40.0):
+      elif (last_rsi_3_lt_8) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_40) and (last_aroond_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_0_118"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_0_119"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 60.0) and (last_aroond_14_4h > 75.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_60) and (last_aroond_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_0_120"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 56.0) and (last_rsi_3_1h > 50.0) and (last_rsi_14_4h < 15.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_56) and (last_rsi_3_1h_gt_50) and (last_rsi_14_4h < 15.0):
         return True, f"exit_{mode_name}_d_0_121"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 > 58.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_5) and (last_rsi_14_gt_58) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_0_122"
-      elif (last_rsi_3 < 5.0) and (last_willr_14 < -98.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_1d > 70.0):
+      elif (last_rsi_3_lt_5) and (last_willr_14 < -98.0) and (last_rsi_3_1h_gt_90) and (last_rsi_3_1d_gt_70):
         return True, f"exit_{mode_name}_d_0_123"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_3_1h > 85.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_3_1h_gt_85)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 20.0))
       ):
         return True, f"exit_{mode_name}_d_0_124"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -98.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_rsi_3_4h_gt_60)
         and (last_rsi_3_1d > 60.0)
         and (last_close > (last_low_min_30_1d * 2.0))
       ):
         return True, f"exit_{mode_name}_d_0_125"
-      elif (last_rsi_3 < 5.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_3_lt_5) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_0_126"
-      elif (last_rsi_3 < 5.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_3_1h_gt_90) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
         return True, f"exit_{mode_name}_d_0_127"
-      elif (last_rsi_3 < 4.0) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
+      elif (last_rsi_3_lt_4) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_0_128"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_3_4h > 75.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_0_129"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_1h < 35.0)
-        and (last_stochrsi_k_1h < 20.0)
+        and (last_stochrsi_k_1h_lt_20)
         and (last_cci_20_change_pct_1h > 0.0)
       ):
         return True, f"exit_{mode_name}_d_0_130"
-      elif (last_rsi_14 > 64.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_14 > 64.0) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_0_131"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_rsi_3_1h > 65.0)
+        (last_rsi_3_lt_5)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_aroond_14_1h > 50.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_0_132"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_aroond_14_15m > 75.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_0_133"
     elif 0.02 > current_profit >= 0.01:
+      # Reused short exit decision threshold checks for this profit bracket
+      last_rsi_3_lt_10 = last_rsi_3 < 10.0
+      last_rsi_3_lt_20 = last_rsi_3 < 20.0
+      last_rsi_14_gt_52 = last_rsi_14 > 52.0
+      last_rsi_3_4h_gt_80 = last_rsi_3_4h > 80.0
+      last_rsi_3_lt_5 = last_rsi_3 < 5.0
+      last_rsi_3_4h_gt_90 = last_rsi_3_4h > 90.0
+      last_rsi_3_1h_gt_80 = last_rsi_3_1h > 80.0
+      last_rsi_14_gt_54 = last_rsi_14 > 54.0
+      last_rsi_3_1h_gt_85 = last_rsi_3_1h > 85.0
+      last_rsi_3_1h_gt_50 = last_rsi_3_1h > 50.0
+      last_rsi_3_1h_gt_90 = last_rsi_3_1h > 90.0
+      last_rsi_3_1h_gt_75 = last_rsi_3_1h > 75.0
+      last_rsi_3_4h_gt_60 = last_rsi_3_4h > 60.0
+      last_rsi_3_lt_22 = last_rsi_3 < 22.0
+      last_rsi_3_4h_gt_75 = last_rsi_3_4h > 75.0
+      last_rsi_3_lt_16 = last_rsi_3 < 16.0
+      last_rsi_3_lt_12 = last_rsi_3 < 12.0
+      last_rsi_3_lt_14 = last_rsi_3 < 14.0
+      last_rsi_3_lt_28 = last_rsi_3 < 28.0
+      last_rsi_3_1h_gt_40 = last_rsi_3_1h > 40.0
+      last_rsi_14_gt_60 = last_rsi_14 > 60.0
+      last_rsi_3_lt_15 = last_rsi_3 < 15.0
+      last_rsi_3_lt_35 = last_rsi_3 < 35.0
+      last_stochrsi_k_4h_lt_60 = last_stochrsi_k_4h < 60.0
+      last_rsi_14_gt_56 = last_rsi_14 > 56.0
+      last_stochrsi_k_4h_lt_80 = last_stochrsi_k_4h < 80.0
+      last_rsi_3_lt_30 = last_rsi_3 < 30.0
+      last_change_pct_1d_gt_5 = last_change_pct_1d > 5.0
+      last_stochrsi_k_4h_lt_10 = last_stochrsi_k_4h < 10.0
+      last_rsi_3_lt_50 = last_rsi_3 < 50.0
+      last_rsi_3_4h_gt_85 = last_rsi_3_4h > 85.0
+      last_stochrsi_k_1h_lt_30 = last_stochrsi_k_1h < 30.0
+      last_stochrsi_k_4h_lt_70 = last_stochrsi_k_4h < 70.0
+      last_rsi_3_1d_gt_75 = last_rsi_3_1d > 75.0
+      last_rsi_3_lt_6 = last_rsi_3 < 6.0
+      last_stochrsi_k_1h_lt_20 = last_stochrsi_k_1h < 20.0
+      last_rsi_3_lt_32 = last_rsi_3 < 32.0
+      last_stochrsi_k_1h_lt_60 = last_stochrsi_k_1h < 60.0
+      last_aroond_14_1h_gt_75 = last_aroond_14_1h > 75.0
+      last_rsi_3_4h_gt_40 = last_rsi_3_4h > 40.0
+      last_roc_9_1h_gt_10 = last_roc_9_1h > 10.0
+      last_change_pct_4h_gt_5 = last_change_pct_4h > 5.0
+      last_aroond_14_4h_gt_25 = last_aroond_14_4h > 25.0
+      last_rsi_3_lt_2 = last_rsi_3 < 2.0
+      last_aroond_14_4h_gt_75 = last_aroond_14_4h > 75.0
+      last_stochrsi_k_1h_lt_70 = last_stochrsi_k_1h < 70.0
+      last_rsi_3_lt_18 = last_rsi_3 < 18.0
+      last_stochrsi_k_4h_lt_75 = last_stochrsi_k_4h < 75.0
+      last_rsi_3_lt_34 = last_rsi_3 < 34.0
+      last_rsi_3_lt_40 = last_rsi_3 < 40.0
+      last_rsi_14_gt_58 = last_rsi_14 > 58.0
+      last_rsi_3_lt_24 = last_rsi_3 < 24.0
+      last_rsi_3_1h_gt_60 = last_rsi_3_1h > 60.0
+      last_rsi_3_1h_gt_55 = last_rsi_3_1h > 55.0
+      last_aroonu_14_4h_lt_50 = last_aroonu_14_4h < 50.0
+      last_aroond_14_4h_gt_50 = last_aroond_14_4h > 50.0
+      last_rsi_3_1h_gt_65 = last_rsi_3_1h > 65.0
+      last_rsi_14_4h_lt_30 = last_rsi_14_4h < 30.0
+      last_rsi_3_1d_gt_70 = last_rsi_3_1d > 70.0
       if (
         (last_willr_14 < -99.0)
         and (last_rsi_14 < 22.0)
@@ -52540,7 +53263,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 1.0)
         and (last_cmf_20_1h > 0.0)
         and (last_cmf_20_4h > 0.0)
-        and ((last_stochrsi_k_4h < 80.0) and (last_stochrsi_k_change_pct_4h > 10.0))
+        and ((last_stochrsi_k_4h_lt_80) and (last_stochrsi_k_change_pct_4h > 10.0))
       ):
         return True, f"exit_{mode_name}_d_1_3"
       elif (
@@ -52555,10 +53278,10 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (last_willr_14 < -98.0) and (last_rsi_14 < 28.0) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
         return True, f"exit_{mode_name}_d_1_5"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_stochrsi_k < 30.0)
-        and (last_rsi_14 > 60.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_rsi_14_gt_60)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_1_6"
@@ -52574,21 +53297,21 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 5.0)
         and (last_cmf_20_1h > 0.1)
         and (last_cmf_20_4h > 0.1)
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_1_8"
       elif (
         (last_willr_14 < -98.0)
-        and (last_rsi_3 < 5.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_rsi_3_lt_5)
+        and (last_change_pct_4h_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_9"
       elif (
         (last_willr_14 < -80.0)
         and (last_rsi_14_gt_50)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (last_roc_9_4h > 10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
@@ -52597,242 +53320,242 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 < 25.0)
         and (last_rsi_14 > 55.0)
         and (last_roc_9_15m > 10.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_1_11"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_1h > 20.0)
         and (last_roc_9_4h > 20.0)
       ):
         return True, f"exit_{mode_name}_d_1_12"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_1_13"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -96.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -96.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_1_14"
-      elif (last_rsi_3 < 5.0) and (last_rsi_14 < 25.0) and (last_roc_9_4h > 30.0):
+      elif (last_rsi_3_lt_5) and (last_rsi_14 < 25.0) and (last_roc_9_4h > 30.0):
         return True, f"exit_{mode_name}_d_1_15"
       elif (
-        (last_rsi_3 < 5.0)
-        and (last_aroond_14_4h > 25.0)
+        (last_rsi_3_lt_5)
+        and (last_aroond_14_4h_gt_25)
         and (last_roc_9_4h > 25.0)
         and (last_aroond_14_1d > 50.0)
         and (last_change_pct_1d > 15.0)
       ):
         return True, f"exit_{mode_name}_d_1_16"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -30.0)
       ):
         return True, f"exit_{mode_name}_d_1_17"
-      elif (last_rsi_3 < 25.0) and (last_rsi_14 < 40.0) and (last_rsi_3_4h > 80.0) and (last_roc_2_1d > 50.0):
+      elif (last_rsi_3 < 25.0) and (last_rsi_14 < 40.0) and (last_rsi_3_4h_gt_80) and (last_roc_2_1d > 50.0):
         return True, f"exit_{mode_name}_d_1_18"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14 < 28.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_19"
-      elif (last_rsi_3 < 50.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_1h > 25.0):
+      elif (last_rsi_3_lt_50) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_90) and (last_aroond_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_1_20"
-      elif (last_rsi_3 < 20.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_4h < 10.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_4h_lt_10):
         return True, f"exit_{mode_name}_d_1_21"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -98.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_22"
-      elif (last_rsi_3 < 5.0) and (last_willr_14 < -90.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_1d > 95.0):
+      elif (last_rsi_3_lt_5) and (last_willr_14 < -90.0) and (last_rsi_3_1h_gt_85) and (last_rsi_3_1d > 95.0):
         return True, f"exit_{mode_name}_d_1_23"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_rsi_14 < 25.0)
         and (last_willr_14 < -90.0)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroond_14_4h > 75.0)
+        and (last_aroond_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_1_24"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -96.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_4h > 15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_25"
-      elif (last_rsi_3 < 15.0) and (last_willr_14 < -96.0) and (last_rsi_3_4h > 85.0) and (last_roc_9_4h > 20.0):
+      elif (last_rsi_3_lt_15) and (last_willr_14 < -96.0) and (last_rsi_3_4h_gt_85) and (last_roc_9_4h > 20.0):
         return True, f"exit_{mode_name}_d_1_26"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_4h < 80.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_4h_lt_80)
       ):
         return True, f"exit_{mode_name}_d_1_27"
-      elif (last_rsi_3 < 20.0) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
         return True, f"exit_{mode_name}_d_1_28"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_1h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_1_29"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 30.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_75) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_30):
         return True, f"exit_{mode_name}_d_1_30"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 85.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_85)
         and (last_stochrsi_k_1h < 75.0)
       ):
         return True, f"exit_{mode_name}_d_1_31"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 85.0) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h < 70.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_85) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_1_32"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -98.0)
         and (last_roc_2_1h > 10.0)
         and (last_roc_9_1h < -30.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_33"
-      elif (last_rsi_3 < 35.0) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
+      elif (last_rsi_3_lt_35) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
         return True, f"exit_{mode_name}_d_1_34"
-      elif (last_rsi_3 < 12.0) and (last_willr_14 < -94.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 25.0):
+      elif (last_rsi_3_lt_12) and (last_willr_14 < -94.0) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h < 25.0):
         return True, f"exit_{mode_name}_d_1_35"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -85.0)
         and (last_roc_9_4h > 25.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_36"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h < 80.0)
         and (last_rsi_3_1d < 75.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_37"
-      elif (last_rsi_3 < 15.0) and (last_willr_14 < -85.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_15) and (last_willr_14 < -85.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_1_38"
-      elif (last_rsi_3 < 5.0) and (last_willr_14 < -95.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_5) and (last_willr_14 < -95.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_1_39"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -85.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_stochrsi_k_1h_lt_70)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_1_40"
       elif (
-        (last_rsi_3 < 5.0)
+        (last_rsi_3_lt_5)
         and (last_willr_14 < -90.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_1_41"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -75.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_stochrsi_k_4h_lt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_42"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_60)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_1_43"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_willr_14 < -95.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 25.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_1_44"
-      elif (last_rsi_3 < 6.0) and (last_willr_14 < -94.0) and (last_rsi_3_1h > 90.0):
+      elif (last_rsi_3_lt_6) and (last_willr_14 < -94.0) and (last_rsi_3_1h_gt_90):
         return True, f"exit_{mode_name}_d_1_45"
-      elif (last_rsi_3 < 30.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 90.0) and (last_roc_2_1d > 20.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_90) and (last_roc_2_1d > 20.0):
         return True, f"exit_{mode_name}_d_1_46"
       elif (
-        (last_rsi_3 < 14.0)
-        and (last_stochrsi_k_1h < 20.0)
-        and (last_stochrsi_k_4h < 60.0)
-        and (last_change_pct_1d > 5.0)
+        (last_rsi_3_lt_14)
+        and (last_stochrsi_k_1h_lt_20)
+        and (last_stochrsi_k_4h_lt_60)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 5.0))
       ):
         return True, f"exit_{mode_name}_d_1_47"
       elif (
-        (last_rsi_3 < 35.0)
-        and (last_rsi_14 > 56.0)
+        (last_rsi_3_lt_35)
+        and (last_rsi_14_gt_56)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_48"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -96.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_change_pct_1d > 5.0)
+        and (last_rsi_3_4h_gt_80)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_49"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -96.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -96.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
         return True, f"exit_{mode_name}_d_1_50"
-      elif (last_rsi_3 < 34.0) and (last_rsi_14 > 54.0) and (last_rsi_3_4h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_34) and (last_rsi_14_gt_54) and (last_rsi_3_4h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_1_51"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14 < 40.0)
         and (last_willr_14 < -90.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_stochrsi_k_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
       ):
         return True, f"exit_{mode_name}_d_1_52"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_53"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_54)
         and (last_stochrsi_k_1h_lt_50)
         and (last_roc_9_4h > 10.0)
         and (last_change_pct_1d > 10.0)
       ):
         return True, f"exit_{mode_name}_d_1_54"
       elif (
-        (last_rsi_3 < 6.0)
+        (last_rsi_3_lt_6)
         and (last_willr_14 < -86.0)
         and (last_roc_9_4h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
@@ -52840,23 +53563,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_55"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 90.0)
       ):
         return True, f"exit_{mode_name}_d_1_56"
       elif (
-        (last_rsi_3 < 50.0)
+        (last_rsi_3_lt_50)
         and (last_rsi_14 > 64.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 30.0)
       ):
         return True, f"exit_{mode_name}_d_1_57"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
@@ -52864,158 +53587,154 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_58"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -88.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_1_59"
       elif (
-        (last_rsi_3 < 35.0)
-        and (last_rsi_14 > 60.0)
+        (last_rsi_3_lt_35)
+        and (last_rsi_14_gt_60)
         and (last_rsi_14_4h < 35.0)
         and (last_stochrsi_k_4h_lt_50)
         and (last_stochrsi_k_1d < 50.0)
       ):
         return True, f"exit_{mode_name}_d_1_60"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 70.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_70):
         return True, f"exit_{mode_name}_d_1_61"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -98.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
       ):
         return True, f"exit_{mode_name}_d_1_62"
-      elif (
-        (last_rsi_3 < 32.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 20.0) and (last_stochrsi_k_4h < 70.0)
-      ):
+      elif (last_rsi_3_lt_32) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h_lt_20) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_1_63"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_64"
-      elif (last_rsi_3 < 32.0) and (last_rsi_14 > 58.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 85.0):
+      elif (last_rsi_3_lt_32) and (last_rsi_14_gt_58) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_85):
         return True, f"exit_{mode_name}_d_1_65"
-      elif (last_rsi_3 < 18.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_18) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_1_66"
       elif (
-        (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 58.0)
+        (last_rsi_3_lt_50)
+        and (last_rsi_14_gt_58)
         and (last_stochrsi_k_4h < 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_1_67"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_16)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_75)
         and (last_roc_2_4h > 30.0)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_1_68"
-      elif (
-        (last_rsi_3 < 4.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h > 5.0)
-      ):
+      elif (last_rsi_3 < 4.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h_gt_5):
         return True, f"exit_{mode_name}_d_1_69"
-      elif (last_rsi_3 < 34.0) and (last_rsi_14 > 60.0) and (last_rsi_3_1h > 75.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_34) and (last_rsi_14_gt_60) and (last_rsi_3_1h_gt_75) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_1_70"
-      elif (last_rsi_3 < 36.0) and (last_rsi_14 > 56.0) and (last_rsi_3_4h > 75.0) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3 < 36.0) and (last_rsi_14_gt_56) and (last_rsi_3_4h_gt_75) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_1_71"
-      elif (last_rsi_3 < 22.0) and (last_rsi_14 > 58.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_22) and (last_rsi_14_gt_58) and (last_rsi_3_1h_gt_90) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_1_72"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 85.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_85)
         and (last_roc_9_4h > 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_1_73"
       elif (
-        (last_rsi_3 < 2.0)
+        (last_rsi_3_lt_2)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_4h_gt_75)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_1_74"
       elif (
         (last_rsi_3 < 4.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_75"
-      elif (last_rsi_3 < 32.0) and (last_rsi_14_gt_50) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
+      elif (last_rsi_3_lt_32) and (last_rsi_14_gt_50) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
         return True, f"exit_{mode_name}_d_1_76"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_14_gt_54)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_1_77"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -84.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_rsi_3_1d > 80.0)
       ):
         return True, f"exit_{mode_name}_d_1_78"
-      elif (last_rsi_3 < 8.0) and (last_willr_14 < -98.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3 < 8.0) and (last_willr_14 < -98.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_1_79"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_54)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_1_80"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_81"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -90.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 85.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_1_82"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_1_83"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -98.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -98.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_1_84"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_willr_14 < -92.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_85"
       elif (
-        (last_rsi_3 < 6.0)
+        (last_rsi_3_lt_6)
         and (last_rsi_14_4h < 20.0)
         and (last_roc_2_1h > 5.0)
         and (last_roc_9_1h < -5.0)
@@ -53023,24 +53742,24 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_1_86"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_4h > 50.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_87"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_willr_14 < -80.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
         and (last_stochrsi_k_4h_lt_50)
         and (last_change_pct_1h > 2.0)
       ):
         return True, f"exit_{mode_name}_d_1_88"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 60.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_60)
         and (last_roc_9_1h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
@@ -53048,288 +53767,345 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 8.0)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_1_90"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_aroonu_14_4h < 50.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_1_91"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_20)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h < 75.0)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_1_92"
       elif (
-        (last_rsi_3 < 28.0)
+        (last_rsi_3_lt_28)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_15m > 50.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_stochrsi_k_1h < 30.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_aroond_14_1h_gt_75)
+        and (last_stochrsi_k_1h_lt_30)
+        and (last_aroond_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_93"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 75.0)
+        and (last_rsi_3_1h_gt_75)
         and (last_rsi_3_4h > 55.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_1_94"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -88.0)
-        and (last_rsi_3_1h > 55.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_55)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h < 90.0)
         and (isinstance(last_aroond_14_1d, np.float64) and (last_aroond_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_1_95"
       elif (
         (last_rsi_3 < 38.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 55.0)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_1d > 55.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_96"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 65.0)
-        and (last_aroond_14_4h > 50.0)
-        and (last_stochrsi_k_4h < 70.0)
+        (last_rsi_3_lt_16)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_65)
+        and (last_aroond_14_4h_gt_50)
+        and (last_stochrsi_k_4h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_1_97"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_rsi_3_15m < 28.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
         and (last_rsi_3_1d < 20.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_98"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14 > 48.0)
         and (last_rsi_3_1h > 35.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_rsi_3_4h_gt_40)
+        and (last_aroond_14_4h_gt_50)
         and (last_stoch_k_4h < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_1_99"
-      elif (last_rsi_3 < 2.0) and (last_rsi_14 < 24.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
+      elif (last_rsi_3_lt_2) and (last_rsi_14 < 24.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
         return True, f"exit_{mode_name}_d_1_100"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -84.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_4h_lt_60)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -40.0))
       ):
         return True, f"exit_{mode_name}_d_1_101"
       elif (
-        (last_rsi_3 < 32.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 60.0)
+        (last_rsi_3_lt_32)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_1_102"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_rsi_14 > 44.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_14_4h_lt_30)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -80.0))
       ):
         return True, f"exit_{mode_name}_d_1_103"
       elif (
         (last_rsi_3 < 36.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_1_104"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_15m > 45.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -25.0)
       ):
         return True, f"exit_{mode_name}_d_1_105"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 50.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_50)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_14_4h_lt_30)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_1_106"
       elif (
         (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_1h_lt_30)
         and (last_rsi_14_4h < 50.0)
       ):
         return True, f"exit_{mode_name}_d_1_107"
-      elif (last_rsi_3 < 44.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 40.0) and (last_stochrsi_k_1h < 20.0):
+      elif (last_rsi_3 < 44.0) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_40) and (last_stochrsi_k_1h_lt_20):
         return True, f"exit_{mode_name}_d_1_108"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_1_109"
-      elif (last_rsi_3 < 28.0) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_lt_28) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_1_110"
       elif (
-        (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 56.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_14_4h < 30.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_aroond_14_4h > 75.0)
+        (last_rsi_3_lt_50)
+        and (last_rsi_14_gt_56)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_14_4h_lt_30)
+        and (last_aroond_14_1h_gt_75)
+        and (last_aroond_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
       ):
         return True, f"exit_{mode_name}_d_1_111"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -75.0)
         and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 65.0)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_rsi_3_1d > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_1_112"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -98.0)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
       ):
         return True, f"exit_{mode_name}_d_1_113"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_rsi_3_4h_gt_70)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
       ):
         return True, f"exit_{mode_name}_d_1_114"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_15m > 70.0)
         and (last_stochrsi_k_1h_lt_50)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_1_115"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_aroonu_14_4h < 50.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_aroonu_14_4h_lt_50):
         return True, f"exit_{mode_name}_d_1_116"
-      elif (
-        (last_rsi_3 < 14.0) and (last_rsi_3_1h > 50.0) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0)
-      ):
+      elif (last_rsi_3_lt_14) and (last_rsi_3_1h_gt_50) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
         return True, f"exit_{mode_name}_d_1_117"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 40.0) and (last_aroond_14_4h > 40.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_40) and (last_aroond_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_1_118"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_1_119"
-      elif (last_rsi_3 < 46.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 60.0) and (last_aroond_14_4h > 75.0):
+      elif (last_rsi_3 < 46.0) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_60) and (last_aroond_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_1_120"
-      elif (last_rsi_3 < 40.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 50.0) and (last_rsi_14_4h < 15.0):
+      elif (last_rsi_3_lt_40) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_50) and (last_rsi_14_4h < 15.0):
         return True, f"exit_{mode_name}_d_1_121"
-      elif (last_rsi_3 < 42.0) and (last_rsi_14 > 56.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3 < 42.0) and (last_rsi_14_gt_56) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_1_122"
-      elif (last_rsi_3 < 12.0) and (last_willr_14 < -96.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_1d > 70.0):
+      elif (last_rsi_3_lt_12) and (last_willr_14 < -96.0) and (last_rsi_3_1h_gt_90) and (last_rsi_3_1d_gt_70):
         return True, f"exit_{mode_name}_d_1_123"
       elif (
-        (last_rsi_3 < 12.0)
-        and (last_rsi_3_1h > 85.0)
+        (last_rsi_3_lt_12)
+        and (last_rsi_3_1h_gt_85)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 20.0))
       ):
         return True, f"exit_{mode_name}_d_1_124"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_willr_14 < -96.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_rsi_3_4h_gt_60)
         and (last_rsi_3_1d > 60.0)
         and (last_close > (last_low_min_30_1d * 2.0))
       ):
         return True, f"exit_{mode_name}_d_1_125"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_1_126"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_1h_gt_90) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
         return True, f"exit_{mode_name}_d_1_127"
-      elif (last_rsi_3 < 6.0) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
+      elif (last_rsi_3_lt_6) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_1_128"
       elif (
-        (last_rsi_3 < 14.0)
-        and (last_rsi_3_4h > 75.0)
+        (last_rsi_3_lt_14)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_1_129"
       elif (
         (last_rsi_3 < 26.0)
         and (last_rsi_14_1h < 35.0)
-        and (last_stochrsi_k_1h < 20.0)
+        and (last_stochrsi_k_1h_lt_20)
         and (last_cci_20_change_pct_1h > 0.0)
       ):
         return True, f"exit_{mode_name}_d_1_130"
-      elif (last_rsi_14 > 62.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_14 > 62.0) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_1_131"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_rsi_3_1h > 65.0)
+        (last_rsi_3_lt_20)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_aroond_14_1h > 50.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_1_132"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_aroond_14_15m > 75.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_1_133"
     elif 0.03 > current_profit >= 0.02:
+      # Reused short exit decision threshold checks for this profit bracket
+      last_rsi_3_lt_30 = last_rsi_3 < 30.0
+      last_rsi_3_lt_20 = last_rsi_3 < 20.0
+      last_rsi_3_4h_gt_80 = last_rsi_3_4h > 80.0
+      last_rsi_3_4h_gt_90 = last_rsi_3_4h > 90.0
+      last_rsi_3_1h_gt_80 = last_rsi_3_1h > 80.0
+      last_rsi_14_gt_52 = last_rsi_14 > 52.0
+      last_rsi_3_lt_10 = last_rsi_3 < 10.0
+      last_rsi_3_1h_gt_85 = last_rsi_3_1h > 85.0
+      last_rsi_3_1h_gt_50 = last_rsi_3_1h > 50.0
+      last_rsi_3_1h_gt_90 = last_rsi_3_1h > 90.0
+      last_rsi_3_lt_15 = last_rsi_3 < 15.0
+      last_rsi_3_1h_gt_75 = last_rsi_3_1h > 75.0
+      last_rsi_3_4h_gt_60 = last_rsi_3_4h > 60.0
+      last_rsi_3_lt_24 = last_rsi_3 < 24.0
+      last_rsi_3_4h_gt_75 = last_rsi_3_4h > 75.0
+      last_rsi_3_lt_18 = last_rsi_3 < 18.0
+      last_rsi_3_lt_14 = last_rsi_3 < 14.0
+      last_rsi_3_lt_16 = last_rsi_3 < 16.0
+      last_rsi_3_lt_22 = last_rsi_3 < 22.0
+      last_rsi_3_lt_12 = last_rsi_3 < 12.0
+      last_rsi_3_1h_gt_40 = last_rsi_3_1h > 40.0
+      last_rsi_3_lt_25 = last_rsi_3 < 25.0
+      last_rsi_3_lt_8 = last_rsi_3 < 8.0
+      last_stochrsi_k_4h_lt_60 = last_stochrsi_k_4h < 60.0
+      last_rsi_14_gt_54 = last_rsi_14 > 54.0
+      last_stochrsi_k_4h_lt_80 = last_stochrsi_k_4h < 80.0
+      last_rsi_14_lt_30 = last_rsi_14 < 30.0
+      last_change_pct_1d_gt_5 = last_change_pct_1d > 5.0
+      last_stochrsi_k_4h_lt_10 = last_stochrsi_k_4h < 10.0
+      last_rsi_14_gt_58 = last_rsi_14 > 58.0
+      last_rsi_3_4h_gt_85 = last_rsi_3_4h > 85.0
+      last_stochrsi_k_1h_lt_30 = last_stochrsi_k_1h < 30.0
+      last_stochrsi_k_4h_lt_70 = last_stochrsi_k_4h < 70.0
+      last_rsi_3_1d_gt_75 = last_rsi_3_1d > 75.0
+      last_rsi_3_lt_40 = last_rsi_3 < 40.0
+      last_stochrsi_k_1h_lt_20 = last_stochrsi_k_1h < 20.0
+      last_rsi_3_lt_34 = last_rsi_3 < 34.0
+      last_rsi_14_gt_48 = last_rsi_14 > 48.0
+      last_stochrsi_k_1h_lt_60 = last_stochrsi_k_1h < 60.0
+      last_aroond_14_1h_gt_75 = last_aroond_14_1h > 75.0
+      last_rsi_3_4h_gt_40 = last_rsi_3_4h > 40.0
+      last_roc_9_1h_gt_10 = last_roc_9_1h > 10.0
+      last_change_pct_4h_gt_5 = last_change_pct_4h > 5.0
+      last_aroond_14_4h_gt_25 = last_aroond_14_4h > 25.0
+      last_aroond_14_4h_gt_75 = last_aroond_14_4h > 75.0
+      last_rsi_3_lt_35 = last_rsi_3 < 35.0
+      last_stochrsi_k_1h_lt_70 = last_stochrsi_k_1h < 70.0
+      last_stochrsi_k_4h_lt_75 = last_stochrsi_k_4h < 75.0
+      last_rsi_3_lt_36 = last_rsi_3 < 36.0
+      last_rsi_14_gt_56 = last_rsi_14 > 56.0
+      last_rsi_3_lt_26 = last_rsi_3 < 26.0
+      last_rsi_3_1h_gt_60 = last_rsi_3_1h > 60.0
+      last_rsi_3_1h_gt_55 = last_rsi_3_1h > 55.0
+      last_aroonu_14_4h_lt_50 = last_aroonu_14_4h < 50.0
+      last_aroond_14_4h_gt_50 = last_aroond_14_4h > 50.0
+      last_rsi_3_1h_gt_65 = last_rsi_3_1h > 65.0
+      last_rsi_14_4h_lt_30 = last_rsi_14_4h < 30.0
+      last_rsi_3_1d_gt_70 = last_rsi_3_1d > 70.0
       if (
         (last_willr_14 < -99.0)
         and (last_rsi_14 < 22.0)
@@ -53352,7 +54128,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 1.0)
         and (last_cmf_20_1h > 0.0)
         and (last_cmf_20_4h > 0.0)
-        and ((last_stochrsi_k_4h < 80.0) and (last_stochrsi_k_change_pct_4h > 10.0))
+        and ((last_stochrsi_k_4h_lt_80) and (last_stochrsi_k_change_pct_4h > 10.0))
       ):
         return True, f"exit_{mode_name}_d_2_3"
       elif (
@@ -53364,13 +54140,13 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_2_4"
-      elif (last_willr_14 < -96.0) and (last_rsi_14 < 30.0) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
+      elif (last_willr_14 < -96.0) and (last_rsi_14_lt_30) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
         return True, f"exit_{mode_name}_d_2_5"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_stochrsi_k < 30.0)
         and (last_rsi_14 > 60.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_2_6"
@@ -53386,265 +54162,265 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_stochrsi_k < 5.0)
         and (last_cmf_20_1h > 0.1)
         and (last_cmf_20_4h > 0.1)
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_2_8"
       elif (
         (last_willr_14 < -96.0)
         and (last_rsi_3 < 5.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_9"
       elif (
         (last_willr_14 < -80.0)
         and (last_rsi_14_gt_50)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (last_roc_9_4h > 10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_2_10"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14 > 55.0)
         and (last_roc_9_15m > 10.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_2_11"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_1h > 20.0)
         and (last_roc_9_4h > 20.0)
       ):
         return True, f"exit_{mode_name}_d_2_12"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_2_13"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -94.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -94.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_2_14"
-      elif (last_rsi_3 < 8.0) and (last_rsi_14 < 30.0) and (last_roc_9_4h > 30.0):
+      elif (last_rsi_3_lt_8) and (last_rsi_14_lt_30) and (last_roc_9_4h > 30.0):
         return True, f"exit_{mode_name}_d_2_15"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_aroond_14_4h > 25.0)
+        (last_rsi_3_lt_30)
+        and (last_aroond_14_4h_gt_25)
         and (last_roc_9_4h > 25.0)
         and (last_aroond_14_1d > 50.0)
         and (last_change_pct_1d > 15.0)
       ):
         return True, f"exit_{mode_name}_d_2_16"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -30.0)
       ):
         return True, f"exit_{mode_name}_d_2_17"
-      elif (last_rsi_3 < 25.0) and (last_rsi_14 < 40.0) and (last_rsi_3_4h > 80.0) and (last_roc_2_1d > 50.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_14 < 40.0) and (last_rsi_3_4h_gt_80) and (last_roc_2_1d > 50.0):
         return True, f"exit_{mode_name}_d_2_18"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 < 30.0)
-        and (last_rsi_3_4h > 90.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_lt_30)
+        and (last_rsi_3_4h_gt_90)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_19"
-      elif (last_rsi_3 < 52.0) and (last_rsi_14 > 58.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_1h > 25.0):
+      elif (last_rsi_3 < 52.0) and (last_rsi_14_gt_58) and (last_rsi_3_1h_gt_90) and (last_aroond_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_2_20"
-      elif (last_rsi_3 < 30.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_4h < 10.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_4h_lt_10):
         return True, f"exit_{mode_name}_d_2_21"
       elif (
         (last_rsi_3 < 4.0)
         and (last_willr_14 < -96.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_22"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -85.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_1d > 95.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -85.0) and (last_rsi_3_1h_gt_85) and (last_rsi_3_1d > 95.0):
         return True, f"exit_{mode_name}_d_2_23"
       elif (
-        (last_rsi_3 < 10.0)
-        and (last_rsi_14 < 30.0)
+        (last_rsi_3_lt_10)
+        and (last_rsi_14_lt_30)
         and (last_willr_14 < -80.0)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroond_14_4h > 75.0)
+        and (last_aroond_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_2_24"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -94.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_4h > 15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_25"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -94.0) and (last_rsi_3_4h > 85.0) and (last_roc_9_4h > 20.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -94.0) and (last_rsi_3_4h_gt_85) and (last_roc_9_4h > 20.0):
         return True, f"exit_{mode_name}_d_2_26"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_4h < 80.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_4h_lt_80)
       ):
         return True, f"exit_{mode_name}_d_2_27"
-      elif (last_rsi_3 < 25.0) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
         return True, f"exit_{mode_name}_d_2_28"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_1h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_2_29"
-      elif (last_rsi_3 < 15.0) and (last_rsi_3_1h > 75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 30.0):
+      elif (last_rsi_3_lt_15) and (last_rsi_3_1h_gt_75) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_30):
         return True, f"exit_{mode_name}_d_2_30"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 85.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_85)
         and (last_stochrsi_k_1h < 75.0)
       ):
         return True, f"exit_{mode_name}_d_2_31"
-      elif (last_rsi_3 < 15.0) and (last_rsi_3_1h > 85.0) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h < 70.0):
+      elif (last_rsi_3_lt_15) and (last_rsi_3_1h_gt_85) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_2_32"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -96.0)
         and (last_roc_2_1h > 10.0)
         and (last_roc_9_1h < -30.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_33"
-      elif (last_rsi_3 < 35.0) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
+      elif (last_rsi_3_lt_35) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
         return True, f"exit_{mode_name}_d_2_34"
-      elif (last_rsi_3 < 14.0) and (last_willr_14 < -93.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 25.0):
+      elif (last_rsi_3_lt_14) and (last_willr_14 < -93.0) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h < 25.0):
         return True, f"exit_{mode_name}_d_2_35"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -80.0)
         and (last_roc_9_4h > 25.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_36"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h < 80.0)
         and (last_rsi_3_1d < 75.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_37"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -80.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -80.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_2_38"
-      elif (last_rsi_3 < 6.0) and (last_willr_14 < -94.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3 < 6.0) and (last_willr_14 < -94.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_2_39"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -80.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_stochrsi_k_1h_lt_70)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_2_40"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -85.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_2_41"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -70.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_stochrsi_k_4h_lt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_42"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_60)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_2_43"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_willr_14 < -90.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 25.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_2_44"
-      elif (last_rsi_3 < 8.0) and (last_willr_14 < -92.0) and (last_rsi_3_1h > 90.0):
+      elif (last_rsi_3_lt_8) and (last_willr_14 < -92.0) and (last_rsi_3_1h_gt_90):
         return True, f"exit_{mode_name}_d_2_45"
-      elif (last_rsi_3 < 30.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 90.0) and (last_roc_2_1d > 20.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_90) and (last_roc_2_1d > 20.0):
         return True, f"exit_{mode_name}_d_2_46"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_stochrsi_k_1h < 20.0)
-        and (last_stochrsi_k_4h < 60.0)
-        and (last_change_pct_1d > 5.0)
+        (last_rsi_3_lt_16)
+        and (last_stochrsi_k_1h_lt_20)
+        and (last_stochrsi_k_4h_lt_60)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 5.0))
       ):
         return True, f"exit_{mode_name}_d_2_47"
       elif (
-        (last_rsi_3 < 40.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_40)
+        and (last_rsi_14_gt_54)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_48"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -94.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_change_pct_1d > 5.0)
+        and (last_rsi_3_4h_gt_80)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_49"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -94.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -94.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
         return True, f"exit_{mode_name}_d_2_50"
-      elif (last_rsi_3 < 36.0) and (last_rsi_14 > 52.0) and (last_rsi_3_4h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_36) and (last_rsi_14_gt_52) and (last_rsi_3_4h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_2_51"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_rsi_14 < 42.0)
         and (last_willr_14 < -90.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_stochrsi_k_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
       ):
         return True, f"exit_{mode_name}_d_2_52"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_53"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_14_gt_52)
         and (last_stochrsi_k_1h_lt_50)
         and (last_roc_9_4h > 10.0)
         and (last_change_pct_1d > 10.0)
       ):
         return True, f"exit_{mode_name}_d_2_54"
       elif (
-        (last_rsi_3 < 8.0)
+        (last_rsi_3_lt_8)
         and (last_willr_14 < -84.0)
         and (last_roc_9_4h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
@@ -53652,10 +54428,10 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_55"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 90.0)
       ):
@@ -53668,7 +54444,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_57"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
@@ -53676,76 +54452,72 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_58"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -86.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_2_59"
       elif (
-        (last_rsi_3 < 35.0)
-        and (last_rsi_14 > 58.0)
+        (last_rsi_3_lt_35)
+        and (last_rsi_14_gt_58)
         and (last_rsi_14_4h < 35.0)
         and (last_stochrsi_k_4h_lt_50)
         and (last_stochrsi_k_1d < 50.0)
       ):
         return True, f"exit_{mode_name}_d_2_60"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 70.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_70):
         return True, f"exit_{mode_name}_d_2_61"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -96.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
       ):
         return True, f"exit_{mode_name}_d_2_62"
-      elif (
-        (last_rsi_3 < 34.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 20.0) and (last_stochrsi_k_4h < 70.0)
-      ):
+      elif (last_rsi_3_lt_34) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h_lt_20) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_2_63"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_64"
-      elif (last_rsi_3 < 34.0) and (last_rsi_14 > 56.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 85.0):
+      elif (last_rsi_3_lt_34) and (last_rsi_14_gt_56) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_85):
         return True, f"exit_{mode_name}_d_2_65"
-      elif (last_rsi_3 < 20.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_20) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_2_66"
       elif (
         (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 56.0)
+        and (last_rsi_14_gt_56)
         and (last_stochrsi_k_4h < 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_2_67"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 75.0)
+        and (last_rsi_3_1h_gt_75)
         and (last_roc_2_4h > 30.0)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_2_68"
-      elif (
-        (last_rsi_3 < 5.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h > 5.0)
-      ):
+      elif (last_rsi_3 < 5.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h_gt_5):
         return True, f"exit_{mode_name}_d_2_69"
-      elif (last_rsi_3 < 36.0) and (last_rsi_14 > 58.0) and (last_rsi_3_1h > 75.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_36) and (last_rsi_14_gt_58) and (last_rsi_3_1h_gt_75) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_2_70"
-      elif (last_rsi_3 < 38.0) and (last_rsi_14 > 54.0) and (last_rsi_3_4h > 75.0) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3 < 38.0) and (last_rsi_14_gt_54) and (last_rsi_3_4h_gt_75) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_2_71"
-      elif (last_rsi_3 < 24.0) and (last_rsi_14 > 56.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_24) and (last_rsi_14_gt_56) and (last_rsi_3_1h_gt_90) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_2_72"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 85.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_85)
         and (last_roc_9_4h > 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
@@ -53753,81 +54525,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 3.0)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_4h_gt_75)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_2_74"
       elif (
         (last_rsi_3 < 6.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_75"
-      elif (last_rsi_3 < 34.0) and (last_rsi_14 > 48.0) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
+      elif (last_rsi_3_lt_34) and (last_rsi_14_gt_48) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
         return True, f"exit_{mode_name}_d_2_76"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_2_77"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -82.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_rsi_3_1d > 80.0)
       ):
         return True, f"exit_{mode_name}_d_2_78"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -96.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -96.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_2_79"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_2_80"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -88.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_81"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -88.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 85.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_2_82"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_2_83"
-      elif (last_rsi_3 < 12.0) and (last_willr_14 < -96.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_12) and (last_willr_14 < -96.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_2_84"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -90.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_85"
       elif (
-        (last_rsi_3 < 8.0)
+        (last_rsi_3_lt_8)
         and (last_rsi_14_4h < 20.0)
         and (last_roc_2_1h > 5.0)
         and (last_roc_9_1h < -5.0)
@@ -53835,105 +54607,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_2_86"
       elif (
-        (last_rsi_3 < 36.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_36)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_4h > 50.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_87"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -78.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
         and (last_stochrsi_k_4h_lt_50)
         and (last_change_pct_1h > 2.0)
       ):
         return True, f"exit_{mode_name}_d_2_88"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_14 > 58.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_14_gt_58)
         and (last_roc_9_1h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_2_89"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_2_90"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_aroonu_14_4h < 50.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_2_91"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 60.0)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h < 75.0)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_2_92"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_48)
         and (last_rsi_3_15m > 50.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_stochrsi_k_1h < 30.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_aroond_14_1h_gt_75)
+        and (last_stochrsi_k_1h_lt_30)
+        and (last_aroond_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_93"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_75)
         and (last_rsi_3_4h > 55.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_2_94"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -86.0)
-        and (last_rsi_3_1h > 55.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_55)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h < 90.0)
         and (isinstance(last_aroond_14_1d, np.float64) and (last_aroond_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_2_95"
       elif (
-        (last_rsi_3 < 40.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_40)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_1d > 55.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_96"
       elif (
-        (last_rsi_3 < 18.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 65.0)
-        and (last_aroond_14_4h > 50.0)
-        and (last_stochrsi_k_4h < 70.0)
+        (last_rsi_3_lt_18)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_65)
+        and (last_aroond_14_4h_gt_50)
+        and (last_stochrsi_k_4h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_2_97"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_rsi_3_15m < 30.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
         and (last_rsi_3_1d < 20.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
@@ -53942,8 +54714,8 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 < 42.0)
         and (last_rsi_14 > 46.0)
         and (last_rsi_3_1h > 35.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_rsi_3_4h_gt_40)
+        and (last_aroond_14_4h_gt_50)
         and (last_stoch_k_4h < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
@@ -53951,197 +54723,258 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (last_rsi_3 < 4.0) and (last_rsi_14 < 26.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
         return True, f"exit_{mode_name}_d_2_100"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -82.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_4h_lt_60)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -40.0))
       ):
         return True, f"exit_{mode_name}_d_2_101"
       elif (
-        (last_rsi_3 < 34.0)
+        (last_rsi_3_lt_34)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_2_102"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_rsi_14 > 42.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_14_4h_lt_30)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -80.0))
       ):
         return True, f"exit_{mode_name}_d_2_103"
       elif (
         (last_rsi_3 < 38.0)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_2_104"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_15m > 45.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -25.0)
       ):
         return True, f"exit_{mode_name}_d_2_105"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_14_4h_lt_30)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_2_106"
       elif (
         (last_rsi_3 < 28.0)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_1h_lt_30)
         and (last_rsi_14_4h < 50.0)
       ):
         return True, f"exit_{mode_name}_d_2_107"
-      elif (last_rsi_3 < 46.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 40.0) and (last_stochrsi_k_1h < 20.0):
+      elif (last_rsi_3 < 46.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_40) and (last_stochrsi_k_1h_lt_20):
         return True, f"exit_{mode_name}_d_2_108"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_2_109"
-      elif (last_rsi_3 < 30.0) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_2_110"
       elif (
         (last_rsi_3 < 52.0)
-        and (last_rsi_14 > 54.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_14_4h < 30.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_aroond_14_4h > 75.0)
+        and (last_rsi_14_gt_54)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_14_4h_lt_30)
+        and (last_aroond_14_1h_gt_75)
+        and (last_aroond_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
       ):
         return True, f"exit_{mode_name}_d_2_111"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -70.0)
         and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 65.0)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_rsi_3_1d > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_2_112"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -96.0)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
       ):
         return True, f"exit_{mode_name}_d_2_113"
       elif (
-        (last_rsi_3 < 18.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 80.0)
+        (last_rsi_3_lt_18)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_80)
         and (last_rsi_3_4h_gt_70)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
       ):
         return True, f"exit_{mode_name}_d_2_114"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_15m > 70.0)
         and (last_stochrsi_k_1h_lt_50)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_2_115"
-      elif (last_rsi_3 < 12.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_aroonu_14_4h < 50.0):
+      elif (last_rsi_3_lt_12) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_aroonu_14_4h_lt_50):
         return True, f"exit_{mode_name}_d_2_116"
-      elif (
-        (last_rsi_3 < 16.0) and (last_rsi_3_1h > 50.0) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0)
-      ):
+      elif (last_rsi_3_lt_16) and (last_rsi_3_1h_gt_50) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
         return True, f"exit_{mode_name}_d_2_117"
-      elif (last_rsi_3 < 12.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 40.0) and (last_aroond_14_4h > 40.0):
+      elif (last_rsi_3_lt_12) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_40) and (last_aroond_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_2_118"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_2_119"
-      elif (last_rsi_3 < 48.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 60.0) and (last_aroond_14_4h > 75.0):
+      elif (last_rsi_3 < 48.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_60) and (last_aroond_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_2_120"
-      elif (last_rsi_3 < 42.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 50.0) and (last_rsi_14_4h < 15.0):
+      elif (last_rsi_3 < 42.0) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_50) and (last_rsi_14_4h < 15.0):
         return True, f"exit_{mode_name}_d_2_121"
-      elif (last_rsi_3 < 44.0) and (last_rsi_14 > 54.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3 < 44.0) and (last_rsi_14_gt_54) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_2_122"
-      elif (last_rsi_3 < 14.0) and (last_willr_14 < -94.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_1d > 70.0):
+      elif (last_rsi_3_lt_14) and (last_willr_14 < -94.0) and (last_rsi_3_1h_gt_90) and (last_rsi_3_1d_gt_70):
         return True, f"exit_{mode_name}_d_2_123"
       elif (
-        (last_rsi_3 < 14.0)
-        and (last_rsi_3_1h > 85.0)
+        (last_rsi_3_lt_14)
+        and (last_rsi_3_1h_gt_85)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 20.0))
       ):
         return True, f"exit_{mode_name}_d_2_124"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_willr_14 < -94.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_rsi_3_4h_gt_60)
         and (last_rsi_3_1d > 60.0)
         and (last_close > (last_low_min_30_1d * 2.0))
       ):
         return True, f"exit_{mode_name}_d_2_125"
-      elif (last_rsi_3 < 12.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_3_lt_12) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_2_126"
-      elif (last_rsi_3 < 12.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
+      elif (last_rsi_3_lt_12) and (last_rsi_3_1h_gt_90) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
         return True, f"exit_{mode_name}_d_2_127"
-      elif (last_rsi_3 < 8.0) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
+      elif (last_rsi_3_lt_8) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_2_128"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_rsi_3_4h > 75.0)
+        (last_rsi_3_lt_16)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_2_129"
       elif (
         (last_rsi_3 < 28.0)
         and (last_rsi_14_1h < 35.0)
-        and (last_stochrsi_k_1h < 20.0)
+        and (last_stochrsi_k_1h_lt_20)
         and (last_cci_20_change_pct_1h > 0.0)
       ):
         return True, f"exit_{mode_name}_d_2_130"
-      elif (last_rsi_14 > 60.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_14 > 60.0) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_2_131"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_3_1h > 65.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_aroond_14_1h > 50.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_2_132"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_aroond_14_15m > 75.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_2_133"
     elif 0.04 > current_profit >= 0.03:
+      # Reused short exit decision threshold checks for this profit bracket
+      last_rsi_3_lt_20 = last_rsi_3 < 20.0
+      last_rsi_14_gt_48 = last_rsi_14 > 48.0
+      last_rsi_3_lt_30 = last_rsi_3 < 30.0
+      last_rsi_3_4h_gt_80 = last_rsi_3_4h > 80.0
+      last_rsi_3_4h_gt_90 = last_rsi_3_4h > 90.0
+      last_rsi_3_1h_gt_80 = last_rsi_3_1h > 80.0
+      last_rsi_3_1h_gt_85 = last_rsi_3_1h > 85.0
+      last_rsi_3_1h_gt_50 = last_rsi_3_1h > 50.0
+      last_rsi_3_lt_25 = last_rsi_3 < 25.0
+      last_rsi_3_lt_10 = last_rsi_3 < 10.0
+      last_rsi_3_1h_gt_90 = last_rsi_3_1h > 90.0
+      last_rsi_3_1h_gt_75 = last_rsi_3_1h > 75.0
+      last_rsi_3_4h_gt_60 = last_rsi_3_4h > 60.0
+      last_rsi_3_lt_26 = last_rsi_3 < 26.0
+      last_rsi_3_4h_gt_75 = last_rsi_3_4h > 75.0
+      last_rsi_3_lt_16 = last_rsi_3 < 16.0
+      last_rsi_3_lt_18 = last_rsi_3 < 18.0
+      last_rsi_3_lt_24 = last_rsi_3 < 24.0
+      last_rsi_3_lt_32 = last_rsi_3 < 32.0
+      last_rsi_3_lt_14 = last_rsi_3 < 14.0
+      last_rsi_3_1h_gt_40 = last_rsi_3_1h > 40.0
+      last_stochrsi_k_4h_lt_60 = last_stochrsi_k_4h < 60.0
+      last_rsi_14_gt_52 = last_rsi_14 > 52.0
+      last_stochrsi_k_4h_lt_80 = last_stochrsi_k_4h < 80.0
+      last_change_pct_1d_gt_5 = last_change_pct_1d > 5.0
+      last_stochrsi_k_4h_lt_10 = last_stochrsi_k_4h < 10.0
+      last_rsi_3_lt_12 = last_rsi_3 < 12.0
+      last_rsi_14_gt_56 = last_rsi_14 > 56.0
+      last_rsi_3_lt_40 = last_rsi_3 < 40.0
+      last_rsi_3_4h_gt_85 = last_rsi_3_4h > 85.0
+      last_stochrsi_k_1h_lt_30 = last_stochrsi_k_1h < 30.0
+      last_stochrsi_k_4h_lt_70 = last_stochrsi_k_4h < 70.0
+      last_rsi_3_1d_gt_75 = last_rsi_3_1d > 75.0
+      last_stochrsi_k_1h_lt_20 = last_stochrsi_k_1h < 20.0
+      last_rsi_3_lt_36 = last_rsi_3 < 36.0
+      last_rsi_14_gt_46 = last_rsi_14 > 46.0
+      last_stochrsi_k_1h_lt_60 = last_stochrsi_k_1h < 60.0
+      last_aroond_14_1h_gt_75 = last_aroond_14_1h > 75.0
+      last_rsi_3_4h_gt_40 = last_rsi_3_4h > 40.0
+      last_stochrsi_k_lt_5 = last_stochrsi_k < 5.0
+      last_rsi_14_lt_32 = last_rsi_14 < 32.0
+      last_roc_9_1h_gt_10 = last_roc_9_1h > 10.0
+      last_change_pct_4h_gt_5 = last_change_pct_4h > 5.0
+      last_aroond_14_4h_gt_25 = last_aroond_14_4h > 25.0
+      last_rsi_3_lt_6 = last_rsi_3 < 6.0
+      last_rsi_3_lt_15 = last_rsi_3 < 15.0
+      last_aroond_14_4h_gt_75 = last_aroond_14_4h > 75.0
+      last_rsi_3_lt_35 = last_rsi_3 < 35.0
+      last_stochrsi_k_1h_lt_70 = last_stochrsi_k_1h < 70.0
+      last_rsi_3_lt_22 = last_rsi_3 < 22.0
+      last_stochrsi_k_4h_lt_75 = last_stochrsi_k_4h < 75.0
+      last_rsi_3_lt_38 = last_rsi_3 < 38.0
+      last_rsi_3_lt_50 = last_rsi_3 < 50.0
+      last_rsi_14_gt_54 = last_rsi_14 > 54.0
+      last_rsi_3_lt_28 = last_rsi_3 < 28.0
+      last_rsi_3_1h_gt_60 = last_rsi_3_1h > 60.0
+      last_rsi_3_1h_gt_55 = last_rsi_3_1h > 55.0
+      last_aroonu_14_4h_lt_50 = last_aroonu_14_4h < 50.0
+      last_aroond_14_4h_gt_50 = last_aroond_14_4h > 50.0
+      last_rsi_3_1h_gt_65 = last_rsi_3_1h > 65.0
+      last_rsi_14_4h_lt_30 = last_rsi_14_4h < 30.0
+      last_rsi_3_1d_gt_70 = last_rsi_3_1d > 70.0
       if (
         (last_willr_14 < -99.0)
         and (last_rsi_14 < 22.0)
@@ -54161,28 +54994,28 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_3_2"
       elif (
         (last_willr_14 < -80.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_cmf_20_1h > 0.0)
         and (last_cmf_20_4h > 0.0)
-        and ((last_stochrsi_k_4h < 80.0) and (last_stochrsi_k_change_pct_4h > 10.0))
+        and ((last_stochrsi_k_4h_lt_80) and (last_stochrsi_k_change_pct_4h > 10.0))
       ):
         return True, f"exit_{mode_name}_d_3_3"
       elif (
         (last_willr_14 < -70.0)
         and (last_rsi_14 < 35.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_stochrsi_k_4h < 30.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h > last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_3_4"
-      elif (last_willr_14 < -94.0) and (last_rsi_14 < 32.0) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
+      elif (last_willr_14 < -94.0) and (last_rsi_14_lt_32) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
         return True, f"exit_{mode_name}_d_3_5"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_stochrsi_k < 30.0)
         and (last_rsi_14 > 60.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_3_6"
@@ -54195,198 +55028,198 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_3_7"
       elif (
         (last_willr_14 < -94.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_cmf_20_1h > 0.1)
         and (last_cmf_20_4h > 0.1)
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_3_8"
       elif (
         (last_willr_14 < -94.0)
         and (last_rsi_3 < 5.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_9"
       elif (
         (last_willr_14 < -80.0)
         and (last_rsi_14_gt_50)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (last_roc_9_4h > 10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_3_10"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14 > 55.0)
         and (last_roc_9_15m > 10.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_3_11"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_1h > 20.0)
         and (last_roc_9_4h > 20.0)
       ):
         return True, f"exit_{mode_name}_d_3_12"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_3_13"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -92.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -92.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_3_14"
-      elif (last_rsi_3 < 10.0) and (last_rsi_14 < 35.0) and (last_roc_9_4h > 30.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_14 < 35.0) and (last_roc_9_4h > 30.0):
         return True, f"exit_{mode_name}_d_3_15"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_aroond_14_4h > 25.0)
+        (last_rsi_3_lt_30)
+        and (last_aroond_14_4h_gt_25)
         and (last_roc_9_4h > 25.0)
         and (last_aroond_14_1d > 50.0)
         and (last_change_pct_1d > 15.0)
       ):
         return True, f"exit_{mode_name}_d_3_16"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -30.0)
       ):
         return True, f"exit_{mode_name}_d_3_17"
-      elif (last_rsi_3 < 25.0) and (last_rsi_14 < 40.0) and (last_rsi_3_4h > 80.0) and (last_roc_2_1d > 50.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_14 < 40.0) and (last_rsi_3_4h_gt_80) and (last_roc_2_1d > 50.0):
         return True, f"exit_{mode_name}_d_3_18"
       elif (
-        (last_rsi_3 < 12.0)
-        and (last_rsi_14 < 32.0)
-        and (last_rsi_3_4h > 90.0)
+        (last_rsi_3_lt_12)
+        and (last_rsi_14_lt_32)
+        and (last_rsi_3_4h_gt_90)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_19"
-      elif (last_rsi_3 < 54.0) and (last_rsi_14 > 56.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_1h > 25.0):
+      elif (last_rsi_3 < 54.0) and (last_rsi_14_gt_56) and (last_rsi_3_1h_gt_90) and (last_aroond_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_3_20"
-      elif (last_rsi_3 < 40.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_4h < 10.0):
+      elif (last_rsi_3_lt_40) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_4h_lt_10):
         return True, f"exit_{mode_name}_d_3_21"
       elif (
-        (last_rsi_3 < 6.0)
+        (last_rsi_3_lt_6)
         and (last_willr_14 < -94.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_22"
-      elif (last_rsi_3 < 15.0) and (last_willr_14 < -80.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_1d > 95.0):
+      elif (last_rsi_3_lt_15) and (last_willr_14 < -80.0) and (last_rsi_3_1h_gt_85) and (last_rsi_3_1d > 95.0):
         return True, f"exit_{mode_name}_d_3_23"
       elif (
-        (last_rsi_3 < 12.0)
-        and (last_rsi_14 < 32.0)
+        (last_rsi_3_lt_12)
+        and (last_rsi_14_lt_32)
         and (last_willr_14 < -75.0)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroond_14_4h > 75.0)
+        and (last_aroond_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_3_24"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_4h > 15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_25"
-      elif (last_rsi_3 < 25.0) and (last_willr_14 < -92.0) and (last_rsi_3_4h > 85.0) and (last_roc_9_4h > 20.0):
+      elif (last_rsi_3_lt_25) and (last_willr_14 < -92.0) and (last_rsi_3_4h_gt_85) and (last_roc_9_4h > 20.0):
         return True, f"exit_{mode_name}_d_3_26"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_4h < 80.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_4h_lt_80)
       ):
         return True, f"exit_{mode_name}_d_3_27"
-      elif (last_rsi_3 < 30.0) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
         return True, f"exit_{mode_name}_d_3_28"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_1h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_3_29"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_1h > 75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 30.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_1h_gt_75) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_30):
         return True, f"exit_{mode_name}_d_3_30"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 85.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_85)
         and (last_stochrsi_k_1h < 75.0)
       ):
         return True, f"exit_{mode_name}_d_3_31"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_1h > 85.0) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h < 70.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_1h_gt_85) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_3_32"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -94.0)
         and (last_roc_2_1h > 10.0)
         and (last_roc_9_1h < -30.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_33"
-      elif (last_rsi_3 < 35.0) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
+      elif (last_rsi_3_lt_35) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
         return True, f"exit_{mode_name}_d_3_34"
-      elif (last_rsi_3 < 16.0) and (last_willr_14 < -92.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 25.0):
+      elif (last_rsi_3_lt_16) and (last_willr_14 < -92.0) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h < 25.0):
         return True, f"exit_{mode_name}_d_3_35"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -75.0)
         and (last_roc_9_4h > 25.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_36"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h < 80.0)
         and (last_rsi_3_1d < 75.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_37"
-      elif (last_rsi_3 < 25.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_25) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_3_38"
-      elif (last_rsi_3 < 7.0) and (last_willr_14 < -93.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3 < 7.0) and (last_willr_14 < -93.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_3_39"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -75.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_stochrsi_k_1h_lt_70)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_3_40"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -80.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_3_41"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -65.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_stochrsi_k_4h_lt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_42"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_60)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_3_43"
@@ -54398,57 +55231,57 @@ class NostalgiaForInfinityX7(IStrategy):
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_3_44"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -90.0) and (last_rsi_3_1h > 90.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -90.0) and (last_rsi_3_1h_gt_90):
         return True, f"exit_{mode_name}_d_3_45"
-      elif (last_rsi_3 < 30.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 90.0) and (last_roc_2_1d > 20.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_90) and (last_roc_2_1d > 20.0):
         return True, f"exit_{mode_name}_d_3_46"
       elif (
-        (last_rsi_3 < 18.0)
-        and (last_stochrsi_k_1h < 20.0)
-        and (last_stochrsi_k_4h < 60.0)
-        and (last_change_pct_1d > 5.0)
+        (last_rsi_3_lt_18)
+        and (last_stochrsi_k_1h_lt_20)
+        and (last_stochrsi_k_4h_lt_60)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 5.0))
       ):
         return True, f"exit_{mode_name}_d_3_47"
       elif (
         (last_rsi_3 < 45.0)
-        and (last_rsi_14 > 52.0)
+        and (last_rsi_14_gt_52)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_48"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_change_pct_1d > 5.0)
+        and (last_rsi_3_4h_gt_80)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_49"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -92.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -92.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
         return True, f"exit_{mode_name}_d_3_50"
-      elif (last_rsi_3 < 38.0) and (last_rsi_14_gt_50) and (last_rsi_3_4h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_38) and (last_rsi_14_gt_50) and (last_rsi_3_4h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_3_51"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_rsi_14 < 44.0)
         and (last_willr_14 < -90.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_stochrsi_k_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
       ):
         return True, f"exit_{mode_name}_d_3_52"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_53"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_rsi_14_gt_50)
         and (last_stochrsi_k_1h_lt_50)
         and (last_roc_9_4h > 10.0)
@@ -54456,7 +55289,7 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_54"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_willr_14 < -82.0)
         and (last_roc_9_4h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
@@ -54464,23 +55297,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_55"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 90.0)
       ):
         return True, f"exit_{mode_name}_d_3_56"
       elif (
-        (last_rsi_3 < 50.0)
+        (last_rsi_3_lt_50)
         and (last_rsi_14 > 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 30.0)
       ):
         return True, f"exit_{mode_name}_d_3_57"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
@@ -54488,76 +55321,72 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_58"
       elif (
-        (last_rsi_3 < 15.0)
+        (last_rsi_3_lt_15)
         and (last_willr_14 < -84.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_3_59"
       elif (
-        (last_rsi_3 < 35.0)
-        and (last_rsi_14 > 56.0)
+        (last_rsi_3_lt_35)
+        and (last_rsi_14_gt_56)
         and (last_rsi_14_4h < 35.0)
         and (last_stochrsi_k_4h_lt_50)
         and (last_stochrsi_k_1d < 50.0)
       ):
         return True, f"exit_{mode_name}_d_3_60"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 70.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_70):
         return True, f"exit_{mode_name}_d_3_61"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -94.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
       ):
         return True, f"exit_{mode_name}_d_3_62"
-      elif (
-        (last_rsi_3 < 36.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 20.0) and (last_stochrsi_k_4h < 70.0)
-      ):
+      elif (last_rsi_3_lt_36) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h_lt_20) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_3_63"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_64"
-      elif (last_rsi_3 < 36.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 85.0):
+      elif (last_rsi_3_lt_36) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_85):
         return True, f"exit_{mode_name}_d_3_65"
-      elif (last_rsi_3 < 22.0) and (last_rsi_14 > 48.0) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_22) and (last_rsi_14_gt_48) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_3_66"
       elif (
-        (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_50)
+        and (last_rsi_14_gt_54)
         and (last_stochrsi_k_4h < 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_3_67"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_20)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_75)
         and (last_roc_2_4h > 30.0)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_3_68"
-      elif (
-        (last_rsi_3 < 6.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h > 5.0)
-      ):
+      elif (last_rsi_3_lt_6) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h_gt_5):
         return True, f"exit_{mode_name}_d_3_69"
-      elif (last_rsi_3 < 38.0) and (last_rsi_14 > 56.0) and (last_rsi_3_1h > 75.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_38) and (last_rsi_14_gt_56) and (last_rsi_3_1h_gt_75) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_3_70"
-      elif (last_rsi_3 < 40.0) and (last_rsi_14 > 52.0) and (last_rsi_3_4h > 75.0) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_40) and (last_rsi_14_gt_52) and (last_rsi_3_4h_gt_75) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_3_71"
-      elif (last_rsi_3 < 26.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_26) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_90) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_3_72"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 85.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_85)
         and (last_roc_9_4h > 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
@@ -54565,81 +55394,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 4.0)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_4h_gt_75)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_3_74"
       elif (
         (last_rsi_3 < 8.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_75"
-      elif (last_rsi_3 < 36.0) and (last_rsi_14 > 46.0) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
+      elif (last_rsi_3_lt_36) and (last_rsi_14_gt_46) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
         return True, f"exit_{mode_name}_d_3_76"
       elif (
-        (last_rsi_3 < 28.0)
+        (last_rsi_3_lt_28)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_3_77"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -80.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_rsi_3_1d > 80.0)
       ):
         return True, f"exit_{mode_name}_d_3_78"
-      elif (last_rsi_3 < 12.0) and (last_willr_14 < -94.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_12) and (last_willr_14 < -94.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_3_79"
       elif (
-        (last_rsi_3 < 32.0)
+        (last_rsi_3_lt_32)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_3_80"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -86.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_81"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -86.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 85.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_3_82"
       elif (
-        (last_rsi_3 < 32.0)
+        (last_rsi_3_lt_32)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 60.0)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_3_83"
-      elif (last_rsi_3 < 14.0) and (last_willr_14 < -94.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_14) and (last_willr_14 < -94.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_3_84"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -88.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_85"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_rsi_14_4h < 20.0)
         and (last_roc_2_1h > 5.0)
         and (last_roc_9_1h < -5.0)
@@ -54647,80 +55476,80 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_3_86"
       elif (
-        (last_rsi_3 < 38.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 55.0)
+        (last_rsi_3_lt_38)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_4h > 50.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_87"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_willr_14 < -76.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
         and (last_stochrsi_k_4h_lt_50)
         and (last_change_pct_1h > 2.0)
       ):
         return True, f"exit_{mode_name}_d_3_88"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 56.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_56)
         and (last_roc_9_1h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_3_89"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_3_90"
       elif (
-        (last_rsi_3 < 32.0)
+        (last_rsi_3_lt_32)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_3_91"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h < 75.0)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_3_92"
       elif (
-        (last_rsi_3 < 32.0)
-        and (last_rsi_14 > 46.0)
+        (last_rsi_3_lt_32)
+        and (last_rsi_14_gt_46)
         and (last_rsi_3_15m > 50.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_stochrsi_k_1h < 30.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_aroond_14_1h_gt_75)
+        and (last_stochrsi_k_1h_lt_30)
+        and (last_aroond_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_93"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_75)
         and (last_rsi_3_4h > 55.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_3_94"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -84.0)
-        and (last_rsi_3_1h > 55.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_55)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h < 90.0)
         and (isinstance(last_aroond_14_1d, np.float64) and (last_aroond_14_1d > 75.0))
       ):
@@ -54728,24 +55557,24 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 42.0)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 55.0)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_1d > 55.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_96"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 65.0)
-        and (last_aroond_14_4h > 50.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_rsi_3_1h_gt_65)
+        and (last_aroond_14_4h_gt_50)
+        and (last_stochrsi_k_4h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_3_97"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_rsi_3_15m < 32.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
         and (last_rsi_3_1d < 20.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
@@ -54754,206 +55583,265 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 < 44.0)
         and (last_rsi_14 > 44.0)
         and (last_rsi_3_1h > 35.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_rsi_3_4h_gt_40)
+        and (last_aroond_14_4h_gt_50)
         and (last_stoch_k_4h < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_3_99"
-      elif (last_rsi_3 < 6.0) and (last_rsi_14 < 28.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
+      elif (last_rsi_3_lt_6) and (last_rsi_14 < 28.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
         return True, f"exit_{mode_name}_d_3_100"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_4h_lt_60)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -40.0))
       ):
         return True, f"exit_{mode_name}_d_3_101"
       elif (
-        (last_rsi_3 < 36.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 60.0)
+        (last_rsi_3_lt_36)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_3_102"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_rsi_14 > 40.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_14_4h_lt_30)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -80.0))
       ):
         return True, f"exit_{mode_name}_d_3_103"
       elif (
-        (last_rsi_3 < 40.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
-        and (last_stochrsi_k_4h < 10.0)
+        (last_rsi_3_lt_40)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_3_104"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_48)
         and (last_rsi_3_15m > 45.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -25.0)
       ):
         return True, f"exit_{mode_name}_d_3_105"
       elif (
-        (last_rsi_3 < 32.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 50.0)
+        (last_rsi_3_lt_32)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_50)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_14_4h_lt_30)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_3_106"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_1h < 30.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_1h_lt_30)
         and (last_rsi_14_4h < 50.0)
       ):
         return True, f"exit_{mode_name}_d_3_107"
-      elif (last_rsi_3 < 48.0) and (last_rsi_14 > 48.0) and (last_rsi_3_1h > 40.0) and (last_stochrsi_k_1h < 20.0):
+      elif (last_rsi_3 < 48.0) and (last_rsi_14_gt_48) and (last_rsi_3_1h_gt_40) and (last_stochrsi_k_1h_lt_20):
         return True, f"exit_{mode_name}_d_3_108"
       elif (
-        (last_rsi_3 < 28.0)
+        (last_rsi_3_lt_28)
         and (last_willr_14 < -88.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_3_109"
-      elif (last_rsi_3 < 32.0) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_lt_32) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_3_110"
       elif (
         (last_rsi_3 < 54.0)
-        and (last_rsi_14 > 52.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_14_4h < 30.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_aroond_14_4h > 75.0)
+        and (last_rsi_14_gt_52)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_14_4h_lt_30)
+        and (last_aroond_14_1h_gt_75)
+        and (last_aroond_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
       ):
         return True, f"exit_{mode_name}_d_3_111"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_willr_14 < -65.0)
         and (last_rsi_14 > 44.0)
-        and (last_rsi_3_1h > 65.0)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_rsi_3_1d > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_3_112"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -94.0)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
       ):
         return True, f"exit_{mode_name}_d_3_113"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 80.0)
+        (last_rsi_3_lt_20)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_80)
         and (last_rsi_3_4h_gt_70)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
       ):
         return True, f"exit_{mode_name}_d_3_114"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_48)
         and (last_rsi_3_15m > 70.0)
         and (last_stochrsi_k_1h_lt_50)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_3_115"
-      elif (last_rsi_3 < 14.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_aroonu_14_4h < 50.0):
+      elif (last_rsi_3_lt_14) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_aroonu_14_4h_lt_50):
         return True, f"exit_{mode_name}_d_3_116"
-      elif (
-        (last_rsi_3 < 18.0) and (last_rsi_3_1h > 50.0) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0)
-      ):
+      elif (last_rsi_3_lt_18) and (last_rsi_3_1h_gt_50) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
         return True, f"exit_{mode_name}_d_3_117"
-      elif (last_rsi_3 < 14.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 40.0) and (last_aroond_14_4h > 40.0):
+      elif (last_rsi_3_lt_14) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_40) and (last_aroond_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_3_118"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_3_119"
-      elif (last_rsi_3 < 50.0) and (last_rsi_14 > 48.0) and (last_rsi_3_1h > 60.0) and (last_aroond_14_4h > 75.0):
+      elif (last_rsi_3_lt_50) and (last_rsi_14_gt_48) and (last_rsi_3_1h_gt_60) and (last_aroond_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_3_120"
-      elif (last_rsi_3 < 44.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 50.0) and (last_rsi_14_4h < 15.0):
+      elif (last_rsi_3 < 44.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_50) and (last_rsi_14_4h < 15.0):
         return True, f"exit_{mode_name}_d_3_121"
-      elif (last_rsi_3 < 46.0) and (last_rsi_14 > 52.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3 < 46.0) and (last_rsi_14_gt_52) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_3_122"
-      elif (last_rsi_3 < 16.0) and (last_willr_14 < -92.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_1d > 70.0):
+      elif (last_rsi_3_lt_16) and (last_willr_14 < -92.0) and (last_rsi_3_1h_gt_90) and (last_rsi_3_1d_gt_70):
         return True, f"exit_{mode_name}_d_3_123"
       elif (
-        (last_rsi_3 < 16.0)
-        and (last_rsi_3_1h > 85.0)
+        (last_rsi_3_lt_16)
+        and (last_rsi_3_1h_gt_85)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 20.0))
       ):
         return True, f"exit_{mode_name}_d_3_124"
       elif (
-        (last_rsi_3 < 28.0)
+        (last_rsi_3_lt_28)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_rsi_3_4h_gt_60)
         and (last_rsi_3_1d > 60.0)
         and (last_close > (last_low_min_30_1d * 2.0))
       ):
         return True, f"exit_{mode_name}_d_3_125"
-      elif (last_rsi_3 < 14.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_3_lt_14) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_3_126"
-      elif (last_rsi_3 < 14.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
+      elif (last_rsi_3_lt_14) and (last_rsi_3_1h_gt_90) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
         return True, f"exit_{mode_name}_d_3_127"
-      elif (last_rsi_3 < 10.0) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
+      elif (last_rsi_3_lt_10) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_3_128"
       elif (
-        (last_rsi_3 < 18.0)
-        and (last_rsi_3_4h > 75.0)
+        (last_rsi_3_lt_18)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_3_129"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_1h < 35.0)
-        and (last_stochrsi_k_1h < 20.0)
+        and (last_stochrsi_k_1h_lt_20)
         and (last_cci_20_change_pct_1h > 0.0)
       ):
         return True, f"exit_{mode_name}_d_3_130"
-      elif (last_rsi_14 > 58.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_14 > 58.0) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_3_131"
       elif (
-        (last_rsi_3 < 24.0)
-        and (last_rsi_3_1h > 65.0)
+        (last_rsi_3_lt_24)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_aroond_14_1h > 50.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_3_132"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_aroond_14_15m > 75.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_3_133"
     elif 0.05 > current_profit >= 0.04:
+      # Reused short exit decision threshold checks for this profit bracket
+      last_rsi_3_lt_30 = last_rsi_3 < 30.0
+      last_rsi_3_lt_20 = last_rsi_3 < 20.0
+      last_rsi_14_gt_46 = last_rsi_14 > 46.0
+      last_rsi_3_4h_gt_80 = last_rsi_3_4h > 80.0
+      last_rsi_3_lt_25 = last_rsi_3 < 25.0
+      last_rsi_3_4h_gt_90 = last_rsi_3_4h > 90.0
+      last_rsi_3_1h_gt_80 = last_rsi_3_1h > 80.0
+      last_rsi_14_gt_48 = last_rsi_14 > 48.0
+      last_rsi_3_1h_gt_85 = last_rsi_3_1h > 85.0
+      last_rsi_3_1h_gt_50 = last_rsi_3_1h > 50.0
+      last_rsi_3_1h_gt_90 = last_rsi_3_1h > 90.0
+      last_rsi_3_1h_gt_75 = last_rsi_3_1h > 75.0
+      last_rsi_3_4h_gt_60 = last_rsi_3_4h > 60.0
+      last_rsi_3_lt_28 = last_rsi_3 < 28.0
+      last_rsi_3_4h_gt_75 = last_rsi_3_4h > 75.0
+      last_rsi_3_lt_22 = last_rsi_3 < 22.0
+      last_rsi_3_lt_18 = last_rsi_3 < 18.0
+      last_rsi_3_lt_26 = last_rsi_3 < 26.0
+      last_rsi_3_lt_34 = last_rsi_3 < 34.0
+      last_rsi_3_lt_16 = last_rsi_3 < 16.0
+      last_rsi_3_1h_gt_40 = last_rsi_3_1h > 40.0
+      last_rsi_3_lt_12 = last_rsi_3 < 12.0
+      last_rsi_3_lt_35 = last_rsi_3 < 35.0
+      last_rsi_3_lt_50 = last_rsi_3 < 50.0
+      last_stochrsi_k_4h_lt_60 = last_stochrsi_k_4h < 60.0
+      last_stochrsi_k_4h_lt_80 = last_stochrsi_k_4h < 80.0
+      last_change_pct_1d_gt_5 = last_change_pct_1d > 5.0
+      last_stochrsi_k_4h_lt_10 = last_stochrsi_k_4h < 10.0
+      last_rsi_3_lt_14 = last_rsi_3 < 14.0
+      last_rsi_14_gt_54 = last_rsi_14 > 54.0
+      last_rsi_3_4h_gt_85 = last_rsi_3_4h > 85.0
+      last_stochrsi_k_1h_lt_30 = last_stochrsi_k_1h < 30.0
+      last_stochrsi_k_4h_lt_70 = last_stochrsi_k_4h < 70.0
+      last_rsi_3_1d_gt_75 = last_rsi_3_1d > 75.0
+      last_stochrsi_k_1h_lt_20 = last_stochrsi_k_1h < 20.0
+      last_rsi_3_lt_40 = last_rsi_3 < 40.0
+      last_rsi_3_lt_38 = last_rsi_3 < 38.0
+      last_rsi_14_gt_44 = last_rsi_14 > 44.0
+      last_stochrsi_k_1h_lt_60 = last_stochrsi_k_1h < 60.0
+      last_aroond_14_1h_gt_75 = last_aroond_14_1h > 75.0
+      last_rsi_3_4h_gt_40 = last_rsi_3_4h > 40.0
+      last_stochrsi_k_lt_5 = last_stochrsi_k < 5.0
+      last_rsi_14_lt_34 = last_rsi_14 < 34.0
+      last_roc_9_1h_gt_10 = last_roc_9_1h > 10.0
+      last_change_pct_4h_gt_5 = last_change_pct_4h > 5.0
+      last_rsi_3_lt_10 = last_rsi_3 < 10.0
+      last_aroond_14_4h_gt_25 = last_aroond_14_4h > 25.0
+      last_rsi_3_lt_8 = last_rsi_3 < 8.0
+      last_aroond_14_4h_gt_75 = last_aroond_14_4h > 75.0
+      last_stochrsi_k_1h_lt_70 = last_stochrsi_k_1h < 70.0
+      last_rsi_3_lt_24 = last_rsi_3 < 24.0
+      last_stochrsi_k_4h_lt_75 = last_stochrsi_k_4h < 75.0
+      last_rsi_14_gt_52 = last_rsi_14 > 52.0
+      last_rsi_3_1h_gt_60 = last_rsi_3_1h > 60.0
+      last_rsi_3_1h_gt_55 = last_rsi_3_1h > 55.0
+      last_aroonu_14_4h_lt_50 = last_aroonu_14_4h < 50.0
+      last_aroond_14_4h_gt_50 = last_aroond_14_4h > 50.0
+      last_rsi_3_1h_gt_65 = last_rsi_3_1h > 65.0
+      last_rsi_14_4h_lt_30 = last_rsi_14_4h < 30.0
+      last_rsi_3_1d_gt_70 = last_rsi_3_1d > 70.0
       if (
         (last_willr_14 < -99.0)
         and (last_rsi_14 < 22.0)
@@ -54973,28 +55861,28 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_4_2"
       elif (
         (last_willr_14 < -80.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_cmf_20_1h > 0.0)
         and (last_cmf_20_4h > 0.0)
-        and ((last_stochrsi_k_4h < 80.0) and (last_stochrsi_k_change_pct_4h > 10.0))
+        and ((last_stochrsi_k_4h_lt_80) and (last_stochrsi_k_change_pct_4h > 10.0))
       ):
         return True, f"exit_{mode_name}_d_4_3"
       elif (
         (last_willr_14 < -70.0)
         and (last_rsi_14 < 35.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_stochrsi_k_4h < 30.0)
         and (isinstance(last_ema_200_1h, np.float64) and (last_ema_12_1h > last_ema_200_1h))
         and (isinstance(last_ema_200_4h, np.float64) and (last_ema_12_4h > last_ema_200_4h))
       ):
         return True, f"exit_{mode_name}_d_4_4"
-      elif (last_willr_14 < -92.0) and (last_rsi_14 < 34.0) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
+      elif (last_willr_14 < -92.0) and (last_rsi_14_lt_34) and (last_roc_9_1h > 5.0) and (last_roc_9_4h > 5.0):
         return True, f"exit_{mode_name}_d_4_5"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_stochrsi_k < 30.0)
         and (last_rsi_14 > 60.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_4_6"
@@ -55007,268 +55895,268 @@ class NostalgiaForInfinityX7(IStrategy):
         return True, f"exit_{mode_name}_d_4_7"
       elif (
         (last_willr_14 < -92.0)
-        and (last_stochrsi_k < 5.0)
+        and (last_stochrsi_k_lt_5)
         and (last_cmf_20_1h > 0.1)
         and (last_cmf_20_4h > 0.1)
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -15.0))
       ):
         return True, f"exit_{mode_name}_d_4_8"
       elif (
         (last_willr_14 < -93.0)
         and (last_rsi_3 < 5.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_9"
       elif (
         (last_willr_14 < -80.0)
         and (last_rsi_14_gt_50)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (last_roc_9_4h > 10.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
       ):
         return True, f"exit_{mode_name}_d_4_10"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14 > 55.0)
         and (last_roc_9_15m > 10.0)
-        and (last_roc_9_1h > 10.0)
+        and (last_roc_9_1h_gt_10)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 20.0))
       ):
         return True, f"exit_{mode_name}_d_4_11"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_1h > 20.0)
         and (last_roc_9_4h > 20.0)
       ):
         return True, f"exit_{mode_name}_d_4_12"
-      elif (last_rsi_3 < 20.0) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_4h > 95.0) and (last_roc_9_4h > 25.0):
         return True, f"exit_{mode_name}_d_4_13"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -90.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -90.0) and (last_rsi_3_4h > 95.0) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_4_14"
-      elif (last_rsi_3 < 12.0) and (last_rsi_14 < 40.0) and (last_roc_9_4h > 30.0):
+      elif (last_rsi_3_lt_12) and (last_rsi_14 < 40.0) and (last_roc_9_4h > 30.0):
         return True, f"exit_{mode_name}_d_4_15"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_aroond_14_4h > 25.0)
+        (last_rsi_3_lt_30)
+        and (last_aroond_14_4h_gt_25)
         and (last_roc_9_4h > 25.0)
         and (last_aroond_14_1d > 50.0)
         and (last_change_pct_1d > 15.0)
       ):
         return True, f"exit_{mode_name}_d_4_16"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -70.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -30.0)
       ):
         return True, f"exit_{mode_name}_d_4_17"
-      elif (last_rsi_3 < 25.0) and (last_rsi_14 < 40.0) and (last_rsi_3_4h > 80.0) and (last_roc_2_1d > 50.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_14 < 40.0) and (last_rsi_3_4h_gt_80) and (last_roc_2_1d > 50.0):
         return True, f"exit_{mode_name}_d_4_18"
       elif (
-        (last_rsi_3 < 14.0)
-        and (last_rsi_14 < 34.0)
-        and (last_rsi_3_4h > 90.0)
+        (last_rsi_3_lt_14)
+        and (last_rsi_14_lt_34)
+        and (last_rsi_3_4h_gt_90)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_19"
-      elif (last_rsi_3 < 56.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_1h > 25.0):
+      elif (last_rsi_3 < 56.0) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_90) and (last_aroond_14_1h > 25.0):
         return True, f"exit_{mode_name}_d_4_20"
-      elif (last_rsi_3 < 45.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_4h < 10.0):
+      elif (last_rsi_3 < 45.0) and (last_rsi_14_gt_50) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_4h_lt_10):
         return True, f"exit_{mode_name}_d_4_21"
       elif (
-        (last_rsi_3 < 8.0)
+        (last_rsi_3_lt_8)
         and (last_willr_14 < -92.0)
-        and (last_change_pct_4h > 5.0)
+        and (last_change_pct_4h_gt_5)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_22"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -75.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_1d > 95.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -75.0) and (last_rsi_3_1h_gt_85) and (last_rsi_3_1d > 95.0):
         return True, f"exit_{mode_name}_d_4_23"
       elif (
-        (last_rsi_3 < 14.0)
-        and (last_rsi_14 < 34.0)
+        (last_rsi_3_lt_14)
+        and (last_rsi_14_lt_34)
         and (last_willr_14 < -70.0)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroond_14_4h > 75.0)
+        and (last_aroond_14_4h_gt_75)
       ):
         return True, f"exit_{mode_name}_d_4_24"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 90.0)
+        and (last_rsi_3_4h_gt_90)
         and (last_roc_9_4h > 15.0)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_25"
-      elif (last_rsi_3 < 30.0) and (last_willr_14 < -90.0) and (last_rsi_3_4h > 85.0) and (last_roc_9_4h > 20.0):
+      elif (last_rsi_3_lt_30) and (last_willr_14 < -90.0) and (last_rsi_3_4h_gt_85) and (last_roc_9_4h > 20.0):
         return True, f"exit_{mode_name}_d_4_26"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_4h < 80.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_4h_lt_80)
       ):
         return True, f"exit_{mode_name}_d_4_27"
-      elif (last_rsi_3 < 35.0) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
+      elif (last_rsi_3_lt_35) and (last_rsi_14_gt_50) and (last_rsi_3_15m > 90.0) and (last_roc_9_4h < -50.0):
         return True, f"exit_{mode_name}_d_4_28"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 80.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_rsi_3_1h_gt_80)
+        and (last_rsi_3_4h_gt_80)
+        and (last_stochrsi_k_1h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_4_29"
-      elif (last_rsi_3 < 25.0) and (last_rsi_3_1h > 75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 30.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_3_1h_gt_75) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_30):
         return True, f"exit_{mode_name}_d_4_30"
       elif (
-        (last_rsi_3 < 35.0)
+        (last_rsi_3_lt_35)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 85.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_85)
         and (last_stochrsi_k_1h < 75.0)
       ):
         return True, f"exit_{mode_name}_d_4_31"
-      elif (last_rsi_3 < 25.0) and (last_rsi_3_1h > 85.0) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h < 70.0):
+      elif (last_rsi_3_lt_25) and (last_rsi_3_1h_gt_85) and (last_roc_2_4h > 30.0) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_4_32"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -92.0)
         and (last_roc_2_1h > 10.0)
         and (last_roc_9_1h < -30.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_33"
-      elif (last_rsi_3 < 35.0) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
+      elif (last_rsi_3_lt_35) and (last_rsi_3_15m > 70.0) and (last_rsi_14_1h < 20.0) and (last_roc_9_1h < -40.0):
         return True, f"exit_{mode_name}_d_4_34"
-      elif (last_rsi_3 < 18.0) and (last_willr_14 < -91.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 25.0):
+      elif (last_rsi_3_lt_18) and (last_willr_14 < -91.0) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h < 25.0):
         return True, f"exit_{mode_name}_d_4_35"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_willr_14 < -70.0)
         and (last_roc_9_4h > 25.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_36"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h < 80.0)
         and (last_rsi_3_1d < 75.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_37"
-      elif (last_rsi_3 < 30.0) and (last_willr_14 < -70.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_30) and (last_willr_14 < -70.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_4_38"
-      elif (last_rsi_3 < 8.0) and (last_willr_14 < -92.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_8) and (last_willr_14 < -92.0) and (last_cmf_20_4h > 0.0) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_4_39"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_willr_14 < -70.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_1h < 70.0)
+        and (last_stochrsi_k_1h_lt_70)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_4_40"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -75.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_4_41"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -60.0)
-        and (last_stochrsi_k_4h < 70.0)
+        and (last_stochrsi_k_4h_lt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_42"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 85.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_85)
+        and (last_rsi_3_4h_gt_60)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_4_43"
       elif (
-        (last_rsi_3 < 50.0)
+        (last_rsi_3_lt_50)
         and (last_willr_14 < -80.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 25.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
       ):
         return True, f"exit_{mode_name}_d_4_44"
-      elif (last_rsi_3 < 12.0) and (last_willr_14 < -88.0) and (last_rsi_3_1h > 90.0):
+      elif (last_rsi_3_lt_12) and (last_willr_14 < -88.0) and (last_rsi_3_1h_gt_90):
         return True, f"exit_{mode_name}_d_4_45"
-      elif (last_rsi_3 < 30.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 90.0) and (last_roc_2_1d > 20.0):
+      elif (last_rsi_3_lt_30) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_90) and (last_roc_2_1d > 20.0):
         return True, f"exit_{mode_name}_d_4_46"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_stochrsi_k_1h < 20.0)
-        and (last_stochrsi_k_4h < 60.0)
-        and (last_change_pct_1d > 5.0)
+        (last_rsi_3_lt_20)
+        and (last_stochrsi_k_1h_lt_20)
+        and (last_stochrsi_k_4h_lt_60)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 5.0))
       ):
         return True, f"exit_{mode_name}_d_4_47"
       elif (
-        (last_rsi_3 < 50.0)
+        (last_rsi_3_lt_50)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_48"
       elif (
-        (last_rsi_3 < 25.0)
+        (last_rsi_3_lt_25)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 80.0)
-        and (last_change_pct_1d > 5.0)
+        and (last_rsi_3_4h_gt_80)
+        and (last_change_pct_1d_gt_5)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_49"
-      elif (last_rsi_3 < 20.0) and (last_willr_14 < -90.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
+      elif (last_rsi_3_lt_20) and (last_willr_14 < -90.0) and (last_rsi_3_1d > 90.0) and (last_stochrsi_k_1h < 10.0):
         return True, f"exit_{mode_name}_d_4_50"
-      elif (last_rsi_3 < 40.0) and (last_rsi_14 > 48.0) and (last_rsi_3_4h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_40) and (last_rsi_14_gt_48) and (last_rsi_3_4h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_4_51"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_rsi_14 < 46.0)
         and (last_willr_14 < -90.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_stochrsi_k_1h_lt_30)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
       ):
         return True, f"exit_{mode_name}_d_4_52"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_14_gt_50)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 80.0)
+        and (last_rsi_3_1h_gt_80)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_53"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_48)
         and (last_stochrsi_k_1h_lt_50)
         and (last_roc_9_4h > 10.0)
         and (last_change_pct_1d > 10.0)
       ):
         return True, f"exit_{mode_name}_d_4_54"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_willr_14 < -80.0)
         and (last_roc_9_4h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -10.0))
@@ -55276,23 +56164,23 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_55"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14_gt_50)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 90.0)
       ):
         return True, f"exit_{mode_name}_d_4_56"
       elif (
-        (last_rsi_3 < 50.0)
+        (last_rsi_3_lt_50)
         and (last_rsi_14 > 58.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 30.0))
         and (last_stochrsi_k_4h < 30.0)
       ):
         return True, f"exit_{mode_name}_d_4_57"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
@@ -55302,74 +56190,70 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 15.0)
         and (last_willr_14 < -82.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 15.0))
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_4_59"
       elif (
-        (last_rsi_3 < 35.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_35)
+        and (last_rsi_14_gt_54)
         and (last_rsi_14_4h < 35.0)
         and (last_stochrsi_k_4h_lt_50)
         and (last_stochrsi_k_1d < 50.0)
       ):
         return True, f"exit_{mode_name}_d_4_60"
-      elif (last_rsi_3 < 10.0) and (last_willr_14 < -75.0) and (last_rsi_3_4h > 90.0) and (last_stochrsi_k_1h < 70.0):
+      elif (last_rsi_3_lt_10) and (last_willr_14 < -75.0) and (last_rsi_3_4h_gt_90) and (last_stochrsi_k_1h_lt_70):
         return True, f"exit_{mode_name}_d_4_61"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -92.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
-        and (last_change_pct_1d > 5.0)
+        and (last_change_pct_1d_gt_5)
       ):
         return True, f"exit_{mode_name}_d_4_62"
-      elif (
-        (last_rsi_3 < 38.0) and (last_rsi_3_1d > 75.0) and (last_stochrsi_k_1h < 20.0) and (last_stochrsi_k_4h < 70.0)
-      ):
+      elif (last_rsi_3_lt_38) and (last_rsi_3_1d_gt_75) and (last_stochrsi_k_1h_lt_20) and (last_stochrsi_k_4h_lt_70):
         return True, f"exit_{mode_name}_d_4_63"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_rsi_3_1h_gt_70)
         and (last_rsi_3_4h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_64"
-      elif (last_rsi_3 < 38.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 85.0):
+      elif (last_rsi_3_lt_38) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_85):
         return True, f"exit_{mode_name}_d_4_65"
-      elif (last_rsi_3 < 24.0) and (last_rsi_14 > 46.0) and (last_rsi_3_1h > 80.0) and (last_stochrsi_k_1h_lt_50):
+      elif (last_rsi_3_lt_24) and (last_rsi_14_gt_46) and (last_rsi_3_1h_gt_80) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_4_66"
       elif (
-        (last_rsi_3 < 50.0)
-        and (last_rsi_14 > 52.0)
+        (last_rsi_3_lt_50)
+        and (last_rsi_14_gt_52)
         and (last_stochrsi_k_4h < 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_4_67"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_75)
         and (last_roc_2_4h > 30.0)
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_4_68"
-      elif (
-        (last_rsi_3 < 7.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h > 5.0)
-      ):
+      elif (last_rsi_3 < 7.0) and (last_roc_9_4h < -20.0) and (last_stochrsi_k_4h_lt_50) and (last_change_pct_4h_gt_5):
         return True, f"exit_{mode_name}_d_4_69"
-      elif (last_rsi_3 < 40.0) and (last_rsi_14 > 54.0) and (last_rsi_3_1h > 75.0) and (last_stochrsi_k_4h < 80.0):
+      elif (last_rsi_3_lt_40) and (last_rsi_14_gt_54) and (last_rsi_3_1h_gt_75) and (last_stochrsi_k_4h_lt_80):
         return True, f"exit_{mode_name}_d_4_70"
-      elif (last_rsi_3 < 42.0) and (last_rsi_14_gt_50) and (last_rsi_3_4h > 75.0) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3 < 42.0) and (last_rsi_14_gt_50) and (last_rsi_3_4h_gt_75) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_4_71"
-      elif (last_rsi_3 < 28.0) and (last_rsi_14 > 52.0) and (last_rsi_3_1h > 90.0) and (last_aroond_14_4h > 25.0):
+      elif (last_rsi_3_lt_28) and (last_rsi_14_gt_52) and (last_rsi_3_1h_gt_90) and (last_aroond_14_4h_gt_25):
         return True, f"exit_{mode_name}_d_4_72"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 85.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_85)
         and (last_roc_9_4h > 20.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
@@ -55377,81 +56261,81 @@ class NostalgiaForInfinityX7(IStrategy):
       elif (
         (last_rsi_3 < 5.0)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_rsi_3_1d > 75.0)
+        and (last_rsi_3_4h_gt_75)
+        and (last_rsi_3_1d_gt_75)
         and (last_stochrsi_k_1h > 50.0)
       ):
         return True, f"exit_{mode_name}_d_4_74"
       elif (
-        (last_rsi_3 < 10.0)
+        (last_rsi_3_lt_10)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_75"
-      elif (last_rsi_3 < 38.0) and (last_rsi_14 > 44.0) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
+      elif (last_rsi_3_lt_38) and (last_rsi_14_gt_44) and (last_roc_9_1h < -80.0) and (last_stochrsi_k_4h < 20.0):
         return True, f"exit_{mode_name}_d_4_76"
       elif (
-        (last_rsi_3 < 30.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_30)
+        and (last_rsi_14_gt_48)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_4_77"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -78.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_4h_gt_80)
         and (last_rsi_3_1d > 80.0)
       ):
         return True, f"exit_{mode_name}_d_4_78"
-      elif (last_rsi_3 < 14.0) and (last_willr_14 < -92.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h > 90.0):
+      elif (last_rsi_3_lt_14) and (last_willr_14 < -92.0) and (last_rsi_3_1h_gt_70) and (last_rsi_3_4h_gt_90):
         return True, f"exit_{mode_name}_d_4_79"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 48.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_48)
         and (last_rsi_3_1h_gt_70)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
-        and (last_stochrsi_k_4h < 75.0)
+        and (last_stochrsi_k_4h_lt_75)
       ):
         return True, f"exit_{mode_name}_d_4_80"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -84.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_rsi_14_1d, np.float64) and (last_rsi_14_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_81"
       elif (
-        (last_rsi_3 < 24.0)
+        (last_rsi_3_lt_24)
         and (last_willr_14 < -84.0)
         and (last_rsi_3_4h_gt_70)
         and (last_rsi_3_1d > 85.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_4_82"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_stochrsi_k_4h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_4_83"
-      elif (last_rsi_3 < 16.0) and (last_willr_14 < -92.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
+      elif (last_rsi_3_lt_16) and (last_willr_14 < -92.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h < 80.0):
         return True, f"exit_{mode_name}_d_4_84"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -86.0)
         and (last_rsi_3_1h_gt_70)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_85"
       elif (
-        (last_rsi_3 < 12.0)
+        (last_rsi_3_lt_12)
         and (last_rsi_14_4h < 20.0)
         and (last_roc_2_1h > 5.0)
         and (last_roc_9_1h < -5.0)
@@ -55459,105 +56343,105 @@ class NostalgiaForInfinityX7(IStrategy):
       ):
         return True, f"exit_{mode_name}_d_4_86"
       elif (
-        (last_rsi_3 < 40.0)
+        (last_rsi_3_lt_40)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 55.0)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_4h > 50.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_87"
       elif (
-        (last_rsi_3 < 18.0)
+        (last_rsi_3_lt_18)
         and (last_willr_14 < -74.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
         and (last_stochrsi_k_4h_lt_50)
         and (last_change_pct_1h > 2.0)
       ):
         return True, f"exit_{mode_name}_d_4_88"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 54.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_54)
         and (last_roc_9_1h > 5.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_4_89"
       elif (
-        (last_rsi_3 < 14.0)
+        (last_rsi_3_lt_14)
         and (last_willr_14 < -75.0)
-        and (last_rsi_3_1h > 50.0)
+        and (last_rsi_3_1h_gt_50)
         and (last_rsi_3_4h_gt_70)
-        and (last_aroonu_14_4h < 50.0)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_4_90"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 75.0)
-        and (last_rsi_3_4h > 75.0)
-        and (last_aroonu_14_4h < 50.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_75)
+        and (last_rsi_3_4h_gt_75)
+        and (last_aroonu_14_4h_lt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 50.0))
       ):
         return True, f"exit_{mode_name}_d_4_91"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 60.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_60)
         and (last_stochrsi_k_1h < 75.0)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 25.0))
       ):
         return True, f"exit_{mode_name}_d_4_92"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 44.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_44)
         and (last_rsi_3_15m > 50.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_stochrsi_k_1h < 30.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_aroond_14_1h_gt_75)
+        and (last_stochrsi_k_1h_lt_30)
+        and (last_aroond_14_4h_gt_50)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_93"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_14 > 44.0)
-        and (last_rsi_3_1h > 75.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_14_gt_44)
+        and (last_rsi_3_1h_gt_75)
         and (last_rsi_3_4h > 55.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 10.0))
       ):
         return True, f"exit_{mode_name}_d_4_94"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -82.0)
-        and (last_rsi_3_1h > 55.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_55)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h < 90.0)
         and (isinstance(last_aroond_14_1d, np.float64) and (last_aroond_14_1d > 75.0))
       ):
         return True, f"exit_{mode_name}_d_4_95"
       elif (
         (last_rsi_3 < 44.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 55.0)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_55)
         and (last_rsi_3_1d > 55.0)
         and (last_stochrsi_k_1h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_96"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 48.0)
-        and (last_rsi_3_1h > 65.0)
-        and (last_aroond_14_4h > 50.0)
-        and (last_stochrsi_k_4h < 70.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_48)
+        and (last_rsi_3_1h_gt_65)
+        and (last_aroond_14_4h_gt_50)
+        and (last_stochrsi_k_4h_lt_70)
       ):
         return True, f"exit_{mode_name}_d_4_97"
       elif (
-        (last_rsi_3 < 16.0)
+        (last_rsi_3_lt_16)
         and (last_rsi_3_15m < 34.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
         and (last_rsi_3_1d < 20.0)
         and (last_stochrsi_k_4h_lt_50)
       ):
@@ -55566,202 +56450,200 @@ class NostalgiaForInfinityX7(IStrategy):
         (last_rsi_3 < 46.0)
         and (last_rsi_14 > 42.0)
         and (last_rsi_3_1h > 35.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_aroond_14_4h > 50.0)
+        and (last_rsi_3_4h_gt_40)
+        and (last_aroond_14_4h_gt_50)
         and (last_stoch_k_4h < 60.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_4_99"
-      elif (last_rsi_3 < 8.0) and (last_rsi_14 < 30.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
+      elif (last_rsi_3_lt_8) and (last_rsi_14 < 30.0) and (last_rsi_3_15m < 30.0) and (last_rsi_3_4h > 20.0):
         return True, f"exit_{mode_name}_d_4_100"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -78.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_4h < 60.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_4h_lt_60)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -40.0))
       ):
         return True, f"exit_{mode_name}_d_4_101"
       elif (
-        (last_rsi_3 < 38.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 60.0)
+        (last_rsi_3_lt_38)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_60)
         and (last_stochrsi_k_4h > 70.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -40.0))
       ):
         return True, f"exit_{mode_name}_d_4_102"
       elif (
-        (last_rsi_3 < 28.0)
+        (last_rsi_3_lt_28)
         and (last_rsi_14 > 38.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_14_4h_lt_30)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -80.0))
       ):
         return True, f"exit_{mode_name}_d_4_103"
       elif (
         (last_rsi_3 < 42.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_4_104"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 46.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_46)
         and (last_rsi_3_15m > 45.0)
-        and (last_stochrsi_k_4h < 10.0)
+        and (last_stochrsi_k_4h_lt_10)
         and (last_roc_9_4h < -25.0)
       ):
         return True, f"exit_{mode_name}_d_4_105"
       elif (
-        (last_rsi_3 < 34.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 50.0)
+        (last_rsi_3_lt_34)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_50)
         and (last_stochrsi_k_1h_lt_50)
-        and (last_rsi_14_4h < 30.0)
+        and (last_rsi_14_4h_lt_30)
         and (last_roc_9_4h < -40.0)
       ):
         return True, f"exit_{mode_name}_d_4_106"
       elif (
         (last_rsi_3 < 32.0)
-        and (last_rsi_14 > 46.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_stochrsi_k_1h < 30.0)
+        and (last_rsi_14_gt_46)
+        and (last_rsi_3_1h_gt_50)
+        and (last_stochrsi_k_1h_lt_30)
         and (last_rsi_14_4h < 50.0)
       ):
         return True, f"exit_{mode_name}_d_4_107"
-      elif (last_rsi_3 < 50.0) and (last_rsi_14 > 46.0) and (last_rsi_3_1h > 40.0) and (last_stochrsi_k_1h < 20.0):
+      elif (last_rsi_3_lt_50) and (last_rsi_14_gt_46) and (last_rsi_3_1h_gt_40) and (last_stochrsi_k_1h_lt_20):
         return True, f"exit_{mode_name}_d_4_108"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_willr_14 < -86.0)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_3_4h > 80.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_3_4h_gt_80)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -50.0))
       ):
         return True, f"exit_{mode_name}_d_4_109"
-      elif (last_rsi_3 < 34.0) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
+      elif (last_rsi_3_lt_34) and (last_rsi_3_4h > 35.0) and (last_stochrsi_k_4h_lt_50) and (last_roc_9_4h < -25.0):
         return True, f"exit_{mode_name}_d_4_110"
       elif (
         (last_rsi_3 < 56.0)
         and (last_rsi_14_gt_50)
-        and (last_rsi_3_1h > 50.0)
-        and (last_rsi_14_4h < 30.0)
-        and (last_aroond_14_1h > 75.0)
-        and (last_aroond_14_4h > 75.0)
+        and (last_rsi_3_1h_gt_50)
+        and (last_rsi_14_4h_lt_30)
+        and (last_aroond_14_1h_gt_75)
+        and (last_aroond_14_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -20.0))
       ):
         return True, f"exit_{mode_name}_d_4_111"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_willr_14 < -60.0)
         and (last_rsi_14 > 42.0)
-        and (last_rsi_3_1h > 65.0)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_rsi_3_1d > 40.0)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -30.0))
       ):
         return True, f"exit_{mode_name}_d_4_112"
       elif (
-        (last_rsi_3 < 22.0)
+        (last_rsi_3_lt_22)
         and (last_willr_14 < -92.0)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
         and (last_stochrsi_k_4h_lt_50)
         and (isinstance(last_roc_9_4h, np.float64) and (last_roc_9_4h < -10.0))
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d > 10.0))
       ):
         return True, f"exit_{mode_name}_d_4_113"
       elif (
-        (last_rsi_3 < 22.0)
-        and (last_rsi_14 > 44.0)
-        and (last_rsi_3_1h > 80.0)
+        (last_rsi_3_lt_22)
+        and (last_rsi_14_gt_44)
+        and (last_rsi_3_1h_gt_80)
         and (last_rsi_3_4h_gt_70)
-        and (last_rsi_3_1d > 70.0)
+        and (last_rsi_3_1d_gt_70)
       ):
         return True, f"exit_{mode_name}_d_4_114"
       elif (
-        (last_rsi_3 < 28.0)
-        and (last_rsi_14 > 46.0)
+        (last_rsi_3_lt_28)
+        and (last_rsi_14_gt_46)
         and (last_rsi_3_15m > 70.0)
         and (last_stochrsi_k_1h_lt_50)
         and (last_stochrsi_k_4h_lt_50)
       ):
         return True, f"exit_{mode_name}_d_4_115"
-      elif (last_rsi_3 < 16.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_aroonu_14_4h < 50.0):
+      elif (last_rsi_3_lt_16) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_aroonu_14_4h_lt_50):
         return True, f"exit_{mode_name}_d_4_116"
-      elif (
-        (last_rsi_3 < 20.0) and (last_rsi_3_1h > 50.0) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0)
-      ):
+      elif (last_rsi_3_lt_20) and (last_rsi_3_1h_gt_50) and (last_aroonu_14_1h < 20.0) and (last_aroonu_14_4h < 20.0):
         return True, f"exit_{mode_name}_d_4_117"
-      elif (last_rsi_3 < 16.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h > 40.0) and (last_aroond_14_4h > 40.0):
+      elif (last_rsi_3_lt_16) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_40) and (last_aroond_14_4h > 40.0):
         return True, f"exit_{mode_name}_d_4_118"
       elif (
-        (last_rsi_3 < 20.0)
+        (last_rsi_3_lt_20)
         and (last_willr_14 < -80.0)
-        and (last_rsi_3_1h > 40.0)
-        and (last_rsi_3_4h > 40.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_rsi_3_1h_gt_40)
+        and (last_rsi_3_4h_gt_40)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_4_119"
-      elif (last_rsi_3 < 52.0) and (last_rsi_14 > 46.0) and (last_rsi_3_1h > 60.0) and (last_aroond_14_4h > 75.0):
+      elif (last_rsi_3 < 52.0) and (last_rsi_14_gt_46) and (last_rsi_3_1h_gt_60) and (last_aroond_14_4h_gt_75):
         return True, f"exit_{mode_name}_d_4_120"
-      elif (last_rsi_3 < 46.0) and (last_rsi_14 > 48.0) and (last_rsi_3_1h > 50.0) and (last_rsi_14_4h < 15.0):
+      elif (last_rsi_3 < 46.0) and (last_rsi_14_gt_48) and (last_rsi_3_1h_gt_50) and (last_rsi_14_4h < 15.0):
         return True, f"exit_{mode_name}_d_4_121"
       elif (last_rsi_3 < 48.0) and (last_rsi_14_gt_50) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_1h_lt_50):
         return True, f"exit_{mode_name}_d_4_122"
-      elif (last_rsi_3 < 18.0) and (last_willr_14 < -90.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_1d > 70.0):
+      elif (last_rsi_3_lt_18) and (last_willr_14 < -90.0) and (last_rsi_3_1h_gt_90) and (last_rsi_3_1d_gt_70):
         return True, f"exit_{mode_name}_d_4_123"
       elif (
-        (last_rsi_3 < 18.0)
-        and (last_rsi_3_1h > 85.0)
+        (last_rsi_3_lt_18)
+        and (last_rsi_3_1h_gt_85)
         and (isinstance(last_stochrsi_k_1d, np.float64) and (last_stochrsi_k_1d < 20.0))
       ):
         return True, f"exit_{mode_name}_d_4_124"
       elif (
-        (last_rsi_3 < 30.0)
+        (last_rsi_3_lt_30)
         and (last_willr_14 < -90.0)
-        and (last_rsi_3_1h > 90.0)
-        and (last_rsi_3_4h > 60.0)
+        and (last_rsi_3_1h_gt_90)
+        and (last_rsi_3_4h_gt_60)
         and (last_rsi_3_1d > 60.0)
         and (last_close > (last_low_min_30_1d * 2.0))
       ):
         return True, f"exit_{mode_name}_d_4_125"
-      elif (last_rsi_3 < 16.0) and (last_rsi_3_1h > 85.0) and (last_rsi_3_4h > 60.0) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_3_lt_16) and (last_rsi_3_1h_gt_85) and (last_rsi_3_4h_gt_60) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_4_126"
-      elif (last_rsi_3 < 16.0) and (last_rsi_3_1h > 90.0) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
+      elif (last_rsi_3_lt_16) and (last_rsi_3_1h_gt_90) and (last_rsi_3_4h_gt_70) and (last_rsi_3_1d > 60.0):
         return True, f"exit_{mode_name}_d_4_127"
-      elif (last_rsi_3 < 12.0) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
+      elif (last_rsi_3_lt_12) and (last_rsi_3_4h_gt_70) and (last_aroond_14_4h > 85.0):
         return True, f"exit_{mode_name}_d_4_128"
       elif (
-        (last_rsi_3 < 20.0)
-        and (last_rsi_3_4h > 75.0)
+        (last_rsi_3_lt_20)
+        and (last_rsi_3_4h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -80.0))
       ):
         return True, f"exit_{mode_name}_d_4_129"
       elif (
         (last_rsi_3 < 32.0)
         and (last_rsi_14_1h < 35.0)
-        and (last_stochrsi_k_1h < 20.0)
+        and (last_stochrsi_k_1h_lt_20)
         and (last_cci_20_change_pct_1h > 0.0)
       ):
         return True, f"exit_{mode_name}_d_4_130"
-      elif (last_rsi_14 > 56.0) and (last_rsi_3_1h > 80.0) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
+      elif (last_rsi_14 > 56.0) and (last_rsi_3_1h_gt_80) and (last_rsi_3_4h_gt_70) and (last_stochrsi_k_4h_lt_50):
         return True, f"exit_{mode_name}_d_4_131"
       elif (
-        (last_rsi_3 < 26.0)
-        and (last_rsi_3_1h > 65.0)
+        (last_rsi_3_lt_26)
+        and (last_rsi_3_1h_gt_65)
         and (last_rsi_3_4h > 65.0)
         and (last_aroond_14_1h > 50.0)
-        and (last_stochrsi_k_1h < 60.0)
+        and (last_stochrsi_k_1h_lt_60)
       ):
         return True, f"exit_{mode_name}_d_4_132"
       elif (
-        (last_rsi_3 < 26.0)
+        (last_rsi_3_lt_26)
         and (last_aroond_14_15m > 75.0)
-        and (last_aroond_14_1h > 75.0)
+        and (last_aroond_14_1h_gt_75)
         and (isinstance(last_roc_9_1d, np.float64) and (last_roc_9_1d < -25.0))
       ):
         return True, f"exit_{mode_name}_d_4_133"
@@ -62488,10 +63370,15 @@ class NostalgiaForInfinityX7(IStrategy):
       profit_values = self.calc_total_profit(trade, filled_entries, filled_exits, exit_rate)
     profit_stake, profit_ratio, profit_current_stake_ratio, profit_init_ratio = profit_values
 
+    first_filled_order = filled_orders[0]
+    last_filled_order = filled_orders[-1]
+    first_filled_entry = filled_entries[0]
+    last_filled_entry = filled_entries[-1]
+
     current_stake_amount = trade_amount * exit_rate
-    slice_amount = filled_entries[0].cost
-    slice_profit = (exit_rate - filled_orders[-1].safe_price) / filled_orders[-1].safe_price
-    slice_profit_entry = (exit_rate - filled_entries[-1].safe_price) / filled_entries[-1].safe_price
+    slice_amount = first_filled_entry.cost
+    slice_profit = (exit_rate - last_filled_order.safe_price) / last_filled_order.safe_price
+    slice_profit_entry = (exit_rate - last_filled_entry.safe_price) / last_filled_entry.safe_price
     slice_profit_exit = (
       ((exit_rate - filled_exits[-1].safe_price) / filled_exits[-1].safe_price) if count_of_exits > 0 else 0.0
     )
@@ -62501,7 +63388,7 @@ class NostalgiaForInfinityX7(IStrategy):
       and all(c in (short_rebuy_mode_tags + short_grind_mode_tags) for c in enter_tags)
     )
 
-    has_order_tags = hasattr(filled_orders[0], "ft_order_tag")
+    has_order_tags = hasattr(first_filled_order, "ft_order_tag")
 
     fee_open_rate = trade_fee_open if self.custom_fee_open_rate is None else self.custom_fee_open_rate
     fee_close_rate = trade_fee_close if self.custom_fee_close_rate is None else self.custom_fee_close_rate
@@ -62734,7 +63621,7 @@ class NostalgiaForInfinityX7(IStrategy):
     grind_5_exit_order = None
     grind_5_exit_distance_ratio = 0.0
     for order in reversed(filled_orders):
-      if (order.ft_order_side == "sell") and (order is not filled_orders[0]):
+      if (order.ft_order_side == "sell") and (order is not first_filled_order):
         order_tag = ""
         if has_order_tags:
           if order.ft_order_tag is not None:
@@ -62969,11 +63856,11 @@ class NostalgiaForInfinityX7(IStrategy):
     )
 
     is_short_extra_checks_entry = (
-      (current_time - timedelta(minutes=5) > filled_entries[-1].order_filled_utc)
-      and ((current_time - timedelta(hours=2) > filled_orders[-1].order_filled_utc) or (slice_profit > 0.06))
+      (current_time - timedelta(minutes=5) > last_filled_entry.order_filled_utc)
+      and ((current_time - timedelta(hours=2) > last_filled_order.order_filled_utc) or (slice_profit > 0.06))
       and (
-        (current_stake_amount < (filled_entries[0].cost * 0.50))
-        or (current_time - timedelta(hours=6) > filled_orders[-1].order_filled_utc)
+        (current_stake_amount < (first_filled_entry.cost * 0.50))
+        or (current_time - timedelta(hours=6) > last_filled_order.order_filled_utc)
         or (slice_profit > 0.06)
       )
     )
@@ -63071,7 +63958,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_1_stake_futures if is_futures else self.grinding_v2_derisk_level_1_stake_spot
           )
@@ -63158,7 +64045,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_2_stake_futures if is_futures else self.grinding_v2_derisk_level_2_stake_spot
           )
@@ -63245,7 +64132,7 @@ class NostalgiaForInfinityX7(IStrategy):
     ):
       sell_amount = (
         (
-          filled_entries[0].safe_filled
+          first_filled_entry.safe_filled
           * (
             self.grinding_v2_derisk_level_3_stake_futures if is_futures else self.grinding_v2_derisk_level_3_stake_spot
           )
@@ -64415,6 +65302,9 @@ class NostalgiaForInfinityX7(IStrategy):
   def short_buyback_entry_v2(
     self, last_candle: Series, previous_candle: Series, slice_profit: float, is_derisk: bool
   ) -> float:
+    previous_ema_12 = previous_candle["EMA_12"]
+    previous_ema_26 = previous_candle["EMA_26"]
+
     last_rsi_3_1d = last_candle["RSI_3_1d"]
     last_roc_9_1h = last_candle["ROC_9_1h"]
     last_roc_9_4h = last_candle["ROC_9_4h"]
@@ -64441,8 +65331,11 @@ class NostalgiaForInfinityX7(IStrategy):
     last_aroond_14_15m = last_candle["AROOND_14_15m"]
     last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
     last_stochrsi_k_15m = last_candle["STOCHRSIk_14_14_3_3_15m"]
+    last_stochrsi_k_1h = last_candle["STOCHRSIk_14_14_3_3_1h"]
+    last_stochrsi_k_4h = last_candle["STOCHRSIk_14_14_3_3_4h"]
     last_roc_2_1d = last_candle["ROC_2_1d"]
     last_ema_16 = last_candle["EMA_16"]
+    last_bbu_20 = last_candle["BBU_20_2.0"]
 
     if (last_protections_short_global == True) and (
       (last_enter_short == True)
@@ -64483,7 +65376,7 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_roc_9_1d < 5.0)
         and (last_ema_12 > last_ema_26)
         and ((last_ema_12 - last_ema_26) > (last_open * 0.020))
-        and ((previous_candle["EMA_12"] - previous_candle["EMA_26"]) > (last_open / 100.0))
+        and ((previous_ema_12 - previous_ema_26) > (last_open / 100.0))
       )
       or (
         (last_rsi_14 > 64.0)
@@ -64519,13 +65412,13 @@ class NostalgiaForInfinityX7(IStrategy):
         and (last_roc_9_1h < 5.0)
         and (last_roc_9_4h < 5.0)
         and (last_roc_9_1d < 5.0)
-        and (last_candle["STOCHRSIk_14_14_3_3_1h"] > 20.0)
-        and (last_candle["STOCHRSIk_14_14_3_3_4h"] > 30.0)
+        and (last_stochrsi_k_1h > 20.0)
+        and (last_stochrsi_k_4h > 30.0)
         # and (last_candle["close"] > (last_candle["close_max_48"] * 0.90))
         # and (last_candle["close"] < (last_candle["low_min_6_1h"] * 1.18))
         # and (last_candle["close"] < (last_candle["low_min_12_1h"] * 1.25))
         and (last_close > (last_ema_26 * 1.040))
-        and (last_close > (last_candle["BBU_20_2.0"] * 1.001))
+        and (last_close > (last_bbu_20 * 1.001))
       )
     ):
       return True
@@ -64824,13 +65717,17 @@ class NostalgiaForInfinityX7(IStrategy):
   ) -> float:
     last_rsi_3 = last_candle["RSI_3"]
     last_rsi_14 = last_candle["RSI_14"]
+    last_willr_14 = last_candle["WILLR_14"]
+    last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
+    last_close = last_candle["close"]
+    last_bbl_20 = last_candle["BBL_20_2.0"]
 
     if (
       (last_rsi_3 < 1.0)
       or (last_rsi_14 < 30.0)
-      or (last_candle["WILLR_14"] < -99.9)
-      or (last_candle["STOCHRSIk_14_14_3_3"] > 5.0)
-      or (last_candle["close"] < (last_candle["BBL_20_2.0"] * 0.99))
+      or (last_willr_14 < -99.9)
+      or (last_stochrsi_k > 5.0)
+      or (last_close < (last_bbl_20 * 0.99))
       or ((last_rsi_3 < 10.0) and (last_rsi_14 > 50.0))
     ):
       return True
@@ -64842,13 +65739,17 @@ class NostalgiaForInfinityX7(IStrategy):
   ) -> float:
     last_rsi_3 = last_candle["RSI_3"]
     last_rsi_14 = last_candle["RSI_14"]
+    last_willr_14 = last_candle["WILLR_14"]
+    last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
+    last_close = last_candle["close"]
+    last_bbl_20 = last_candle["BBL_20_2.0"]
 
     if (
       (last_rsi_3 < 1.0)
       or (last_rsi_14 < 30.0)
-      or (last_candle["WILLR_14"] < -99.9)
-      or (last_candle["STOCHRSIk_14_14_3_3"] < 5.0)
-      or (last_candle["close"] < (last_candle["BBL_20_2.0"] * 0.99))
+      or (last_willr_14 < -99.9)
+      or (last_stochrsi_k < 5.0)
+      or (last_close < (last_bbl_20 * 0.99))
       or ((last_rsi_3 < 10.0) and (last_rsi_14 > 50.0))
     ):
       return True
@@ -66509,7 +67410,8 @@ class NostalgiaForInfinityX7(IStrategy):
     trade_fee_open = trade.fee_open
     trade_fee_close = trade.fee_close
 
-    is_backtest = dp.runmode.value in ["backtest", "hyperopt"]
+    runmode_value = dp.runmode.value
+    is_backtest = runmode_value in ["backtest", "hyperopt"]
     trade_open_date = None if is_backtest else trade.open_date_utc.replace(tzinfo=None)
     # we already waiting for an order to get filled
     if trade.has_open_orders:
@@ -66544,7 +67446,7 @@ class NostalgiaForInfinityX7(IStrategy):
 
     has_order_tags = hasattr(filled_orders[0], "ft_order_tag")
 
-    if dp.runmode.value in ("live", "dry_run"):
+    if runmode_value in ("live", "dry_run"):
       ticker = dp.ticker(trade_pair)
       if ("bid" in ticker) and ("ask" in ticker):
         exit_price_side = self.config["exit_pricing"]["price_side"]
@@ -70356,7 +71258,7 @@ class NostalgiaForInfinityX7(IStrategy):
           )
         )
         log.info(
-          f"Rebuy (r) [{current_time}] [{trade.pair}] | Rate: {current_rate} | Stake amount: {buy_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
+          f"Rebuy (r) [{current_time}] [{trade_pair}] | Rate: {current_rate} | Stake amount: {buy_amount} | Profit (stake): {profit_stake} | Profit: {(profit_ratio * 100.0):.2f}%"
         )
         if has_order_tags:
           return buy_amount, "r"
