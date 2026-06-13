@@ -70,7 +70,7 @@ class NostalgiaForInfinityX7(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v17.4.213"
+    return "v17.4.217"
 
   stoploss = -0.99
 
@@ -12610,6 +12610,36 @@ class NostalgiaForInfinityX7(IStrategy):
 
     self._remove_profit_target(pair)
     return True
+
+    # Check Entry Timeout
+    # ---------------------------------------------------------------------------------------------
+    def check_entry_timeout(self, pair: str, trade: Trade, order: Order, current_time: datetime, **kwargs) -> bool:
+      ob = self.dp.orderbook(pair, 1)
+      bids = ob["bids"][0][0]
+      asks = ob["asks"][0][0]
+      # Cancel order if price is more than 3% difference.
+      if trade.is_short:
+        if asks < order.price * 0.97:
+          return True
+      else:
+        if bids > order.price * 1.03:
+          return True
+      return False
+
+    # Check Exit Timeout
+    # ---------------------------------------------------------------------------------------------
+    def check_exit_timeout(self, pair: str, trade: Trade, order: Order, current_time: datetime, **kwargs) -> bool:
+      ob = self.dp.orderbook(pair, 1)
+      bids = ob["bids"][0][0]
+      asks = ob["asks"][0][0]
+      # Cancel order if price is more than 3% difference.
+      if trade.is_short:
+        if bids > order.price * 1.03:
+          return True
+      else:
+        if asks < order.price * 0.97:
+          return True
+      return False
 
   # Bot Loop Start
   # ---------------------------------------------------------------------------------------------
@@ -44985,19 +45015,21 @@ class NostalgiaForInfinityX7(IStrategy):
     slice_profit_exit: float,
     is_derisk: bool,
   ) -> float:
+    last_open = last_candle["open"]
     last_close = last_candle["close"]
     last_rsi_3 = last_candle["RSI_3"]
     last_rsi_3_15m = last_candle["RSI_3_15m"]
     last_rsi_3_1h = last_candle["RSI_3_1h"]
     last_rsi_3_4h = last_candle["RSI_3_4h"]
+    last_rsi_3_1d = last_candle["RSI_3_1d"]
     last_rsi_14 = last_candle["RSI_14"]
-    last_ema_26 = last_candle["EMA_26"]
     last_ema_12 = last_candle["EMA_12"]
-    last_open = last_candle["open"]
+    last_ema_26 = last_candle["EMA_26"]
+    last_willr_14 = last_candle["WILLR_14"]
     last_stochrsi_k = last_candle["STOCHRSIk_14_14_3_3"]
     last_roc_9_1h = last_candle["ROC_9_1h"]
     last_roc_9_4h = last_candle["ROC_9_4h"]
-    last_willr_14 = last_candle["WILLR_14"]
+    last_roc_9_1d = last_candle["ROC_9_1d"]
 
     if last_candle["protections_long_global"] != True:
       return False
@@ -45014,6 +45046,7 @@ class NostalgiaForInfinityX7(IStrategy):
       and (last_rsi_14 < 45.0)
       and (last_candle["AROONU_14"] < 25.0)
       and (last_candle["AROONU_14_4h"] < 100.0)
+      and (last_roc_9_1h < 20.0)
       and (last_close > (last_candle["close_max_48"] * 0.90))
       and (last_close < (last_candle["low_min_24_4h"] * 1.60))
       and (last_close < (last_candle["EMA_16"] * 0.975))
@@ -45043,8 +45076,8 @@ class NostalgiaForInfinityX7(IStrategy):
       and (last_rsi_3_4h > 15.0)
       and (last_rsi_14 < 35.0)
       and (last_candle["AROONU_14_15m"] < 25.0)
-      and (last_candle["ROC_9_1h"] > -20.0)
-      and (last_roc_9_4h > -20.0)
+      and (last_roc_9_1h > -15.0)
+      and (last_roc_9_4h > -15.0)
       # and (last_close > (last_candle["close_max_48"] * 0.90))
       and (last_close < (last_ema_12 * 0.980))
     ):
@@ -45103,11 +45136,12 @@ class NostalgiaForInfinityX7(IStrategy):
       and (last_rsi_3_15m > 20.0)
       and (last_rsi_3_1h > 20.0)
       and (last_rsi_3_4h > 20.0)
-      and (last_candle["ROC_9_1h"] > -10.0)
-      and (last_roc_9_4h > -10.0)
       and (last_willr_14 < -50.0)
-      and (last_stochrsi_k < 30.0)
       and (last_candle["WILLR_84_1h"] < -70.0)
+      and (last_stochrsi_k < 30.0)
+      and (last_roc_9_1h > -10.0)
+      and (last_roc_9_1h < 20.0)
+      and (last_roc_9_4h > -10.0)
       and (last_close < (last_candle["low_min_24_4h"] * 1.50))
       and (last_candle["BBB_20_2.0_1h"] > 12.0)
       and (last_candle["close_max_48"] >= (last_close * 1.10))
