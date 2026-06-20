@@ -1,0 +1,11 @@
+{
+  "_comment": "NFI X7 'ride mode' (PROTOTYPE, opt-in, requires the custom_exit wrapper on branch nfi-ride-gainers). When a winning long is up > ride_activation AND in a confirmed higher-TF uptrend AND BTC 4h RSI >= ride_btc_rsi_min, NFI's profit-taking exit is suppressed and the trade trails ride_trail from its profit high-water mark. Risk exits (stop/derisk/doom/grind) are never suppressed.",
+  "_results": "Backtest 2024 (149 binance-spot pairs, monthly): upstream +54.42% -> ride +60.56% (+6.14pp). BUT regime-dependent: 2025-26 crash window (37 live pairs): upstream +84.63% -> ride +78.66% (-5.97pp). A bull-market amplifier, NOT a robust all-weather win. The BTC-4h macro gate reduces crash drawdown (3.87->2.14%) but not the return gap. Enable only if you believe you are in a trending regime.",
+  "nfi_advanced_mode": true,
+  "nfi_parameters": {
+    "ride_mode_enable": true,
+    "ride_activation": 0.03,
+    "ride_trail": 0.025,
+    "ride_btc_rsi_min": 50.0
+  }
+}

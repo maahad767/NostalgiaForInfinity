@@ -1961,7 +1961,48 @@ class NostalgiaForInfinityX7(IStrategy):
 
   # Custom Exit
   # ---------------------------------------------------------------------------------------------
+  # --- Ride-gainers mode (prototype) ---------------------------------------------------------
+  # When a winning long is in a confirmed higher-timeframe uptrend, suppress NFI's profit-taking
+  # exit and trail from the profit high-water mark instead, so trending winners run further.
+  # Stops/de-risk/doom/grind exits are never suppressed. Config-overridable via nfi_parameters.
+  ride_mode_enable = False  # opt-in via config (nfi_advanced_mode); off => wrapper is a pass-through
+  ride_activation = 0.02  # only ride once the trade is up at least this much
+  ride_trail = 0.02  # exit when profit pulls back this far from its high-water mark
+  ride_btc_rsi_min = 50.0  # macro regime gate: only ride when BTC 4h RSI >= this (bull regime)
+
   def custom_exit(
+    self, pair: str, trade: "Trade", current_time: "datetime", current_rate: float, current_profit: float, **kwargs
+  ):
+    decision = self._custom_exit_orig(pair, trade, current_time, current_rate, current_profit, **kwargs)
+    if (not trade.is_short) and self.ride_mode_enable and current_profit > self.ride_activation:
+      df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+      if df is not None and len(df) > 0:
+        c = df.iloc[-1]
+        try:
+          uptrend = (
+            (c["close"] > c["EMA_200_1h"])
+            and (c["close"] > c["EMA_200_4h"])
+            and (c["RSI_14_4h"] < 80.0)
+            and (c["BTC_RSI_14_4h"] >= self.ride_btc_rsi_min)  # macro regime gate: only ride when BTC bullish
+          )
+        except (KeyError, TypeError):
+          uptrend = False
+        if uptrend:
+          hwm = trade.get_custom_data("ride_hwm")
+          hwm = current_profit if hwm is None else max(hwm, current_profit)
+          trade.set_custom_data("ride_hwm", hwm)
+          if current_profit < (hwm - self.ride_trail):
+            return "ride_trail_exit"
+          # riding: hold through NFI's profit-take exits (never suppress risk exits)
+          if (
+            decision is not None
+            and current_profit > 0.0
+            and not any(k in str(decision) for k in ("stop", "derisk", "doom", "grind", "liq"))
+          ):
+            return None
+    return decision
+
+  def _custom_exit_orig(
     self, pair: str, trade: "Trade", current_time: "datetime", current_rate: float, current_profit: float, **kwargs
   ):
     trade_is_short = trade.is_short
