@@ -1,12 +1,11 @@
 {
-  "_comment": "NFI X7 grind/recovery retune (COMBINED: system_v3_2 path + grind-mode tag-120 path). Add as an extra -c AFTER your other configs. Config-only, reversible (remove this -c to revert). Verified Phase 0 (these are the live-active params). Backstops unchanged (regular_mode_derisk_spot=-0.24, doom 0.20). A/B over Oct2025-Jun2026 (37 live pairs, incl. crash): return 4.10->4.16%, avg trade duration 1.55->1.28d (-17%), worst MAE -54.9->-43.4%, 0 extra realized losses, max account DD 0.08->0.10%. Helps BOTH system_v3_2 grinders (DODO/NFP/STG/DEXE/EPIC/SAHARA: ~halved churn+drawdown) and grind-mode tag-120 grinders (INJ/ZEC: faster recovery, shallower drawdown). For a more conservative option use only the system_v3_2_* + system_v3_grind_1 keys below.",
+  "_comment": "NFI X7 grind/recovery retune -- variant B3 (MAX RECOVERY). Add as an extra -c AFTER your other configs. Config-only, reversible (remove this -c to revert). Verified Phase 0: targets the live-active system_v3_2 / system_v3 grind path + grind-mode (tag-120) path.",
+  "_what_it_does": "Stronger grinding (lowers average faster) + minimal partial de-risk (keeps the position intact so recoveries actually pay off instead of being whittled to dust -- fixes the 'sold down to $8, can't recover the realized loss' trap). A/B over Oct2025-Jun2026 (37 live pairs, incl. -39% BTC crash): return 4.10->4.21%, avg trade duration 1.55->1.25d, 0 realized losses through the crash. On the system_v3_2 grinder (SAHARA/DODO/NFP/RIF type): de-risk sells 20->4, exit +0.37%->+2.69%.",
+  "_safety": "REMAINING backstops are UNCHANGED and still active: full-position de-risk at -24% (regular_mode_derisk_spot) and doom stop at -20% (stop_threshold_doom_spot). So a pair that craters still gets cut at -24%. The ONE uncovered gap is DELISTING: with partial de-risk minimized you hold a larger bag, and if Binance halts/delists a stuck pair you cannot sell it. MITIGATION (manual, required for B3): monitor Binance delisting announcements and manually close positions on any flagged pair BEFORE the trading halt. Blacklisting does NOT help (open trades keep being managed but a delisted pair cannot be traded at all).",
+  "_conservative_alternative": "For more protection at the cost of weaker recovery, instead of disabling derisk levels 2&3, set system_v3_2_derisk_level_2_stake_spot=0.15 and system_v3_2_derisk_level_3_stake_spot=0.25 (variant B2/combined).",
   "nfi_advanced_mode": true,
   "nfi_parameters": {
-    "system_v3_2_derisk_level_1_stake_spot": 0.10,
-    "system_v3_2_derisk_level_2_stake_spot": 0.15,
-    "system_v3_2_derisk_level_3_stake_spot": 0.25,
     "system_v3_grind_1_stakes_spot": [0.25, 0.30, 0.35, 0.40, 0.45],
-
     "grind_1_stakes_spot": [0.32, 0.36, 0.40],
     "grind_2_stakes_spot": [0.28, 0.32, 0.36],
     "grind_3_stakes_spot": [0.28, 0.30, 0.32],
@@ -18,6 +17,10 @@
     "grind_3_stop_grinds_spot": -0.10,
     "grind_4_stop_grinds_spot": -0.10,
     "grind_5_stop_grinds_spot": -0.10,
-    "grind_6_stop_grinds_spot": -0.10
+    "grind_6_stop_grinds_spot": -0.10,
+
+    "system_v3_2_derisk_level_1_stake_spot": 0.08,
+    "system_v3_2_derisk_level_2_enable": false,
+    "system_v3_2_derisk_level_3_enable": false
   }
 }

@@ -158,6 +158,34 @@ realized losses** through the crash. Cost: +0.02pp account DD, slightly more per
 stop). **Recommended deliverable = combined** (`configs/nfi-recovery-tune.json`); v3_2-only keys remain the
 conservative subset.
 
+## Phase 1c — De-risk crystallization fix + buyback investigation (2026-06-20)
+
+**User insight (confirmed):** partial de-risk (`derisk_level_1/2/3` selling 20/30/50%) whittles a position
+down to a tiny stake while crystallizing realized losses, so even a large % recovery on the remnant can't
+break even (live RIF: $62.9 bought, $50.1 sold, **$8.20 left**, −$4.63 realized → needs +57% just to break
+even). NFI has a buyback (`system_v3_buyback_1`) but it is (a) `enable=False` by default and (b) gated on
+`is_derisk_4_found` (a level-4/near-full de-risk these trades never reach) — so enabling it is a **verified
+no-op** (byte-identical A/B, zero buyback orders). Config can't add "rebuy after partial de-risk".
+
+**Fix = sell less (don't crystallize), not rebuy.** A/B of de-risk-reduction variants on top of the combined
+tune (Oct2025→Jun2026, 37 live pairs):
+
+| variant | return % | total orders | worst MAE % | doom | SAHARA (v3_2 grinder): sells / exit% |
+|---|---|---|---|---|---|
+| combined (de-risk 0.10/0.15/0.25) | 4.16 | 440 | −43.4 | 0 | 20 sells / +0.37% |
+| B2 (disable level-3) | 4.16 | 420 | −41.5 | 0 | 12 sells / +0.49% |
+| **B3 (level-1 0.08, levels 2&3 OFF)** | **4.21** | **407** | −40.1 | **0** | **4 sells / +2.69%** |
+
+**B3 chosen (user, max recovery).** Cutting de-risk sells 20→4 keeps the position intact so the recovery
+lands (+0.37%→+2.69%). 0 doom exits through a −39% BTC crash. **Backstops retained:** full de-risk −24%,
+doom −20% (so cratering pairs still get cut). **Uncovered tail = delisting** (can't sell a halted pair while
+holding a bigger bag) — backtests can't show it (survivorship); mitigated by **manual delisting monitoring +
+close** (user accepted). Option C (code-level rebuy-after-partial-de-risk) deemed **unnecessary** — B3
+achieves the goal config-only. Blacklist behaviour (freqtrade source): open trades stay fully managed;
+blacklist only blocks new entries; delisting freezes the position.
+
+**Deliverable updated to B3** in `configs/nfi-recovery-tune.json`.
+
 ## Phase 2 — Ship (config delivery)
 
 If a variant wins: deliver the `nfi_parameters` block for the user to add to their live config and redeploy
