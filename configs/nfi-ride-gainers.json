@@ -1,11 +1,10 @@
 {
-  "_comment": "NFI X7 'ride mode' (PROTOTYPE, opt-in, requires the custom_exit wrapper on branch nfi-ride-gainers). When a winning long is up > ride_activation AND in a confirmed higher-TF uptrend AND BTC 4h RSI >= ride_btc_rsi_min, NFI's profit-taking exit is suppressed and the trade trails ride_trail from its profit high-water mark. Risk exits (stop/derisk/doom/grind) are never suppressed.",
-  "_results": "Backtest 2024 (149 binance-spot pairs, monthly): upstream +54.42% -> ride +60.56% (+6.14pp). BUT regime-dependent: 2025-26 crash window (37 live pairs): upstream +84.63% -> ride +78.66% (-5.97pp). A bull-market amplifier, NOT a robust all-weather win. The BTC-4h macro gate reduces crash drawdown (3.87->2.14%) but not the return gap. Enable only if you believe you are in a trending regime.",
+  "_comment": "NFI X7 'ride mode' (opt-in, requires the branch nfi-ride-gainers: custom_exit wrapper + BTC daily-bull flag in btc_informative_1d_indicators). When a winning long is up > ride_activation, in a confirmed higher-TF uptrend, AND BTC is in a daily bull regime (close > 200-day EMA, BTC_bull_1d), NFI's profit-taking exit is suppressed and the trade trails ride_trail from its profit high-water mark. Risk exits (stop/derisk/doom/grind) are never suppressed. Off by default (pass-through).",
+  "_results": "2024 bull (149 binance-spot pairs, monthly): upstream +54.42% -> +60.56% (+6.14pp). 2025-26 crash (37 live pairs): upstream +84.63%/1.71%DD -> +82.20% (-2.43pp)/1.29%DD. The daily-bull regime gate keeps FULL bull upside while making the bear loss small with LOWER drawdown. Asymmetric edge (big in trends, contained in bears); net-positive over a typical cycle, not strictly dominant.",
   "nfi_advanced_mode": true,
   "nfi_parameters": {
     "ride_mode_enable": true,
     "ride_activation": 0.03,
-    "ride_trail": 0.025,
-    "ride_btc_rsi_min": 50.0
+    "ride_trail": 0.025
   }
 }

@@ -1983,7 +1983,7 @@ class NostalgiaForInfinityX7(IStrategy):
             (c["close"] > c["EMA_200_1h"])
             and (c["close"] > c["EMA_200_4h"])
             and (c["RSI_14_4h"] < 80.0)
-            and (c["BTC_RSI_14_4h"] >= self.ride_btc_rsi_min)  # macro regime gate: only ride when BTC bullish
+            and (c["BTC_bull_1d"] > 0.5)  # macro regime gate: only ride when BTC > its 200-day EMA (daily bull)
           )
         except (KeyError, TypeError):
           uptrend = False
@@ -4411,6 +4411,8 @@ class NostalgiaForInfinityX7(IStrategy):
     new_cols = pd.DataFrame(
       {
         "BTC_EMA_200": ema_200,
+        # Daily bull-regime flag (1.0 when BTC is above its 200-day EMA). NaN-safe: False before warmup.
+        "BTC_bull": (close_np > ema_200).astype("float64"),
       },
       index=btc_informative_1d.index,
     )
