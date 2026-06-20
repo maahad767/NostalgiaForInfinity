@@ -1,0 +1,23 @@
+{
+  "_comment": "NFI X7 grind/recovery retune (COMBINED: system_v3_2 path + grind-mode tag-120 path). Add as an extra -c AFTER your other configs. Config-only, reversible (remove this -c to revert). Verified Phase 0 (these are the live-active params). Backstops unchanged (regular_mode_derisk_spot=-0.24, doom 0.20). A/B over Oct2025-Jun2026 (37 live pairs, incl. crash): return 4.10->4.16%, avg trade duration 1.55->1.28d (-17%), worst MAE -54.9->-43.4%, 0 extra realized losses, max account DD 0.08->0.10%. Helps BOTH system_v3_2 grinders (DODO/NFP/STG/DEXE/EPIC/SAHARA: ~halved churn+drawdown) and grind-mode tag-120 grinders (INJ/ZEC: faster recovery, shallower drawdown). For a more conservative option use only the system_v3_2_* + system_v3_grind_1 keys below.",
+  "nfi_advanced_mode": true,
+  "nfi_parameters": {
+    "system_v3_2_derisk_level_1_stake_spot": 0.10,
+    "system_v3_2_derisk_level_2_stake_spot": 0.15,
+    "system_v3_2_derisk_level_3_stake_spot": 0.25,
+    "system_v3_grind_1_stakes_spot": [0.25, 0.30, 0.35, 0.40, 0.45],
+
+    "grind_1_stakes_spot": [0.32, 0.36, 0.40],
+    "grind_2_stakes_spot": [0.28, 0.32, 0.36],
+    "grind_3_stakes_spot": [0.28, 0.30, 0.32],
+    "grind_4_stakes_spot": [0.28, 0.30, 0.32],
+    "grind_5_stakes_spot": [0.28, 0.30, 0.32],
+    "grind_6_stakes_spot": [0.14, 0.16, 0.17, 0.18, 0.20, 0.21, 0.22, 0.24, 0.25],
+    "grind_1_stop_grinds_spot": -0.10,
+    "grind_2_stop_grinds_spot": -0.10,
+    "grind_3_stop_grinds_spot": -0.10,
+    "grind_4_stop_grinds_spot": -0.10,
+    "grind_5_stop_grinds_spot": -0.10,
+    "grind_6_stop_grinds_spot": -0.10
+  }
+}
