@@ -95,10 +95,35 @@ check_and_update() {
     rm -f "$tmp_file"
 }
 
+# --- Halal/Shariah compliance: re-apply the haram blacklist after each upstream sync ---
+# The wget above overwrites blacklist-<exchange>.json with upstream's version (~4x/week),
+# which would wipe local additions. So we re-inject undisputedly-haram tokens here, on top
+# of upstream's latest. Idempotent (skips if already present). Categories:
+#   riba/interest-lending: AAVE COMP XVS JST KAVA PENDLE
+#   gambling (maysir):      WIN          (FUN already in upstream's blacklist)
+#   leveraged-derivatives:  DYDX GMX
+# Not a scholarly ruling — verify with a crypto-aware screen.
+HARAM_REGEX='(AAVE|COMP|XVS|JST|KAVA|PENDLE|WIN|DYDX|GMX)/.*'
+ensure_haram_blacklist() {
+    local bl="$CONFIGS_DIR/blacklist-${EXCHANGE}.json"
+    [ -f "$bl" ] || return
+    if grep -qF "$HARAM_REGEX" "$bl"; then
+        return  # already applied
+    fi
+    awk -v line="      \"${HARAM_REGEX}\"," \
+        '/"pair_blacklist": \[/ && !d {print; print line; d=1; next} 1' "$bl" > "$bl.haramtmp" \
+        && mv "$bl.haramtmp" "$bl"
+    echo -e "${GREEN}[HALAL] Re-applied haram blacklist patterns to $(basename "$bl")${NC}"
+    CHANGES_DETECTED=true
+}
+
 # --- Check all three files ---
 check_and_update "${STRATEGY}.py"                      "$STRATEGY_FILE"
 check_and_update "configs/blacklist-${EXCHANGE}.json"  "$CONFIGS_DIR/blacklist-${EXCHANGE}.json"
 check_and_update "configs/${PAIRLIST_FILE}"            "$CONFIGS_DIR/${PAIRLIST_FILE}"
+
+# Re-apply halal blacklist on top of whatever upstream just synced
+ensure_haram_blacklist
 
 echo "------------------------------------------------"
 
