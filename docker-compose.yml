@@ -1,39 +1,43 @@
----
-
-x-common-settings:
-  &common-settings
-  image: freqtradeorg/freqtrade:stable
-  build:
-    context: .
-    dockerfile: "./docker/Dockerfile.custom"
-  restart: unless-stopped
-  volumes:
-    - "./user_data:/freqtrade/user_data"
-    - "./user_data/data:/freqtrade/user_data/data"
-    - "./configs:/freqtrade/configs"
-    - "./${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py:/freqtrade/${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}.py"
-  healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"]
-    interval: 1m30s
-    timeout: 10s
-    retries: 3
-    start_period: 40s
-    start_interval: 5s
-  env_file:
-    - path: .env
-      required: false # default true
-
 services:
-
   freqtrade:
-    <<: *common-settings
-    container_name: ${FREQTRADE__BOT_NAME:-Example_Test_Account}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-futures}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.prod
+    container_name: ${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
+    restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - "${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
-    # Default command used when running `docker compose up`
+      - "127.0.0.1:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
+    volumes:
+      # Configs and strategy are baked into the image (see docker/Dockerfile.custom)
+      # because Coolify doesn't honor relative bind-mounts at runtime.
+      - "freqtrade_userdata:/freqtrade/user_data"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}",
+        ]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Configs loaded explicitly so the named volume can start empty.
     command: >
       trade
-      --db-url sqlite:////freqtrade/user_data/${FREQTRADE__BOT_NAME:-Example_Test_Account}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-futures}-tradesv3.sqlite
-      --log-file user_data/logs/${FREQTRADE__BOT_NAME:-Example_Test_Account}-${FREQTRADE__EXCHANGE__NAME:-binance}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}-${FREQTRADE__TRADING_MODE:-futures}.log
+      -c configs/exampleconfig.json
+      -c configs/exampleconfig_secret.json
+      -c configs/trading_mode-${FREQTRADE__TRADING_MODE:-spot}.json
+      -c configs/pairlist-volume-${FREQTRADE__EXCHANGE__NAME:-binance}-usdt.json
+      -c configs/blacklist-${FREQTRADE__EXCHANGE__NAME:-binance}.json
+      --strategy ${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}
       --strategy-path .
+      --db-url sqlite:////freqtrade/user_data/${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-tradesv3.sqlite
+      --log-file user_data/logs/${FREQTRADE__BOT_NAME:-prod}-${FREQTRADE__EXCHANGE__NAME:-binance}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX7}-${FREQTRADE__TRADING_MODE:-spot}.log
       -v
+
+volumes:
+  freqtrade_userdata:

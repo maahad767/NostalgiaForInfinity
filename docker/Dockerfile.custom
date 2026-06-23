@@ -25,6 +25,11 @@ USER root
 COPY --from=builder /home/ftuser/.local /home/ftuser/.local
 COPY --chown=1000:1000 tests/requirements.txt /freqtrade/
 
+# Bake configs and strategy into the image so Coolify (which doesn't
+# honor relative bind-mounts) has them at runtime without volumes.
+COPY --chown=1000:1000 configs /freqtrade/configs
+COPY --chown=1000:1000 NostalgiaForInfinityX7.py /freqtrade/NostalgiaForInfinityX7.py
+
 USER ftuser
 
 ENV PATH=/home/ftuser/.local/bin:$PATH
