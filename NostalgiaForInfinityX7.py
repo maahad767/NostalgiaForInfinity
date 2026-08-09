@@ -141,7 +141,7 @@ class NostalgiaForInfinityX7(IStrategy):
   # Long top coins mode tags
   long_top_coins_mode_tags = ["141", "142", "143", "144", "145"]
   # Long scalp mode tags
-  long_scalp_mode_tags = ["161", "162", "163", "164", "165", "166", "167", "168"]
+  long_scalp_mode_tags = ["161", "162", "163", "164", "165", "166", "167", "168", "169", "170", "171", "172", "173"]
 
   long_rebuy_grind_mode_tags = long_rebuy_mode_tags + long_grind_mode_tags
   long_scalp_rebuy_grind_mode_tags = long_scalp_mode_tags + long_rebuy_mode_tags + long_grind_mode_tags
@@ -185,7 +185,7 @@ class NostalgiaForInfinityX7(IStrategy):
   # Shorting
 
   # Short normal mode tags
-  short_normal_mode_tags = ["501", "502"]
+  short_normal_mode_tags = ["501", "502", "505", "506"]
   # Short Pump mode tags
   short_pump_mode_tags = ["521", "522", "523", "524", "525", "526"]
   # Short Quick mode tags
@@ -201,7 +201,7 @@ class NostalgiaForInfinityX7(IStrategy):
   # Short top coins mode tags
   short_top_coins_mode_tags = ["641", "642"]
   # Short scalp mode tags
-  short_scalp_mode_tags = ["661", "662", "663", "664", "665", "666"]
+  short_scalp_mode_tags = ["661", "662", "663", "664", "665", "666", "667", "670", "669", "671"]
 
   short_rebuy_grind_mode_tags = short_rebuy_mode_tags + short_grind_mode_tags
   short_scalp_rebuy_grind_mode_tags = short_scalp_mode_tags + short_rebuy_mode_tags + short_grind_mode_tags
@@ -874,6 +874,8 @@ class NostalgiaForInfinityX7(IStrategy):
     "long_entry_condition_4_enable": True,
     "long_entry_condition_5_enable": True,
     "long_entry_condition_6_enable": True,
+    "long_entry_condition_7_enable": False,
+    "long_entry_condition_8_enable": False,
     "long_entry_condition_21_enable": True,
     "long_entry_condition_41_enable": True,
     "long_entry_condition_42_enable": True,
@@ -894,6 +896,7 @@ class NostalgiaForInfinityX7(IStrategy):
     "long_entry_condition_102_enable": True,
     "long_entry_condition_103_enable": True,
     "long_entry_condition_104_enable": True,
+    "long_entry_condition_105_enable": False,
     "long_entry_condition_120_enable": True,
     "long_entry_condition_121_enable": False,
     "long_entry_condition_141_enable": True,
@@ -911,6 +914,11 @@ class NostalgiaForInfinityX7(IStrategy):
     "long_entry_condition_166_enable": False,
     "long_entry_condition_167_enable": False,
     "long_entry_condition_168_enable": False,
+    "long_entry_condition_169_enable": False,
+    "long_entry_condition_170_enable": False,
+    "long_entry_condition_171_enable": False,
+    "long_entry_condition_172_enable": False,
+    "long_entry_condition_173_enable": False,
   }
 
   short_entry_signal_params = {
@@ -920,6 +928,8 @@ class NostalgiaForInfinityX7(IStrategy):
     "short_entry_condition_502_enable": True,
     # "short_entry_condition_503_enable": True,
     # "short_entry_condition_504_enable": True,
+    "short_entry_condition_505_enable": False,
+    "short_entry_condition_506_enable": False,
     # "short_entry_condition_541_enable": True,
     "short_entry_condition_542_enable": True,
     "short_entry_condition_543_enable": False,
@@ -931,11 +941,16 @@ class NostalgiaForInfinityX7(IStrategy):
     "short_entry_condition_563_enable": False,
     "short_entry_condition_592_enable": False,
     "short_entry_condition_593_enable": False,
+    "short_entry_condition_605_enable": False,
     "short_entry_condition_662_enable": False,
     "short_entry_condition_663_enable": False,
     "short_entry_condition_664_enable": False,
     "short_entry_condition_665_enable": False,
     "short_entry_condition_666_enable": False,
+    "short_entry_condition_667_enable": False,
+    "short_entry_condition_670_enable": False,
+    "short_entry_condition_669_enable": False,
+    "short_entry_condition_671_enable": False,
     # "short_entry_condition_603_enable": True,
     # "short_entry_condition_641_enable": True,
     # "short_entry_condition_642_enable": True,
@@ -3591,6 +3606,11 @@ class NostalgiaForInfinityX7(IStrategy):
     low_min_12 = ta_min(low_np, timeperiod=12)
     low_min_24 = ta_min(low_np, timeperiod=24)
 
+    # ADX/DMI — trend strength + direction (signals 7/505 experimental; NFI's first ADX use)
+    adx_14 = ta.ADX(high_np, low_np, close_np, timeperiod=14)
+    plus_di_14 = ta.PLUS_DI(high_np, low_np, close_np, timeperiod=14)
+    minus_di_14 = ta.MINUS_DI(high_np, low_np, close_np, timeperiod=14)
+
     # =========================================================================
     # ASSIGN DATAFRAME
     # =========================================================================
@@ -3598,6 +3618,9 @@ class NostalgiaForInfinityX7(IStrategy):
       {
         "RSI_3": rsi_3,
         "RSI_14": rsi_14,
+        "ADX_14": adx_14,
+        "PLUS_DI_14": plus_di_14,
+        "MINUS_DI_14": minus_di_14,
         "AROONU_14": aroon_up,
         "AROOND_14": aroon_down,
         "BBP_20_2.0": bbp_20,
@@ -4192,10 +4215,71 @@ class NostalgiaForInfinityX7(IStrategy):
     _sfp_prev_high = pd.Series(high_np).rolling(48).max().shift(1).to_numpy()
     sfp_bull_col = ((low_np < _sfp_prev_low) & (close_np > _sfp_prev_low)).astype(float)
     sfp_bear_col = ((high_np > _sfp_prev_high) & (close_np < _sfp_prev_high)).astype(float)
+    # 1h inside-bar breakout — signals 169/667 (experimental): source insists on 1h+ candles
+    _ib_hr = df["date"].dt.floor("1h")
+    _ib_agg = df.groupby(_ib_hr).agg(_ib_hh=("high", "max"), _ib_ll=("low", "min"))
+    _ib_agg["_ib_flag"] = (_ib_agg["_ib_hh"] < _ib_agg["_ib_hh"].shift(1)) & (_ib_agg["_ib_ll"] > _ib_agg["_ib_ll"].shift(1))
+    _ib_agg["_ib_mh"] = _ib_agg["_ib_hh"].shift(1)
+    _ib_agg["_ib_ml"] = _ib_agg["_ib_ll"].shift(1)
+    _ib_prev_hr = _ib_hr - pd.Timedelta(hours=1)
+    ib_ready_col = _ib_prev_hr.map(_ib_agg["_ib_flag"]).eq(True).astype(float).to_numpy()
+    ib_mother_h_col = _ib_prev_hr.map(_ib_agg["_ib_mh"]).to_numpy()
+    ib_mother_l_col = _ib_prev_hr.map(_ib_agg["_ib_ml"]).to_numpy()
+    # Crash-bounce hunter — signal 170 (experimental): rolling 24h return for capitulation context
+    roc_288_col = ta_roc(close_np, timeperiod=288)
+    # relative volume: current candle volume vs its 24h average (confirmation qualifier, not a trigger)
+    _vol_ma = pd.Series(volume_np).rolling(288).mean().to_numpy()
+    vol_rel_col = np.divide(volume_np, _vol_ma, out=np.full_like(_vol_ma, np.nan), where=_vol_ma > 0)
+    # Pump hunter — signal 171 (experimental): rolling 24h return + relative volume + first-fire dedup
+    _ph_prev_max = pd.Series(close_np).rolling(48).max().shift(1).to_numpy()
+    _ph_cross = ((close_np > _ph_prev_max) & (np.roll(close_np, 1) <= _ph_prev_max)).astype(float)
+    _ph_cross[0] = 0.0
+    ph_cross_cnt12_col = pd.Series(_ph_cross).rolling(12).sum().to_numpy()
+    # pump character: height above the 24h low + prior-hour activity (both PRE-ignition)
+    _ph_low288 = pd.Series(low_np).rolling(288).min().to_numpy()
+    ph_base_pos_col = np.divide(close_np - _ph_low288, close_np, out=np.full_like(close_np, np.nan), where=close_np > 0) * 100.0
+    _ph_h12 = pd.Series(high_np).rolling(12).max().shift(1).to_numpy()
+    _ph_l12 = pd.Series(low_np).rolling(12).min().shift(1).to_numpy()
+    ph_pre_tight_col = np.divide(_ph_h12 - _ph_l12, close_np, out=np.full_like(close_np, np.nan), where=close_np > 0) * 100.0
+    # Marubozu — signals 172/670 (experimental): full-body candle = pure momentum ignition
+    _mrb_rng = high_np - low_np
+    _mrb_body_ratio = np.divide(np.abs(close_np - open_np), _mrb_rng, out=np.zeros_like(_mrb_rng), where=_mrb_rng > 0)
+    _mrb_body_pct = np.divide(np.abs(close_np - open_np), close_np, out=np.zeros_like(close_np), where=close_np > 0)
+    mrb_bull_col = ((close_np > open_np) & (_mrb_body_ratio > 0.9) & (_mrb_body_pct > 0.005)).astype(float)
+    mrb_bear_col = ((close_np < open_np) & (_mrb_body_ratio > 0.9) & (_mrb_body_pct > 0.005)).astype(float)
+    # Dump hunter — signal 669 (experimental): mirror of the pump hunter (171)
+    dh_prev_min_col = pd.Series(close_np).rolling(48).min().shift(1).to_numpy()
+    # Pin-bar / hammer — signals 173/671 (experimental): long rejection wick = a completed fact
+    _pb_body = np.abs(close_np - open_np)
+    _pb_lower = np.minimum(open_np, close_np) - low_np
+    _pb_upper = high_np - np.maximum(open_np, close_np)
+    _pb_body_safe = np.where(_pb_body > 0, _pb_body, np.nan)
+    hammer_col = np.nan_to_num(((_pb_lower > 2.0 * _pb_body_safe) & (_pb_upper < 0.5 * _pb_body_safe)
+                  & (_pb_lower > close_np * 0.004)).astype(float))
+    star_col = np.nan_to_num(((_pb_upper > 2.0 * _pb_body_safe) & (_pb_lower < 0.5 * _pb_body_safe)
+                & (_pb_upper > close_np * 0.004)).astype(float))
+    # Donchian 7-day channel — signals 8/506 (experimental): turtle-style macro breakout
+    dc_high_7d_col = pd.Series(close_np).rolling(2016).max().shift(1).to_numpy()
+    dc_low_7d_col = pd.Series(close_np).rolling(2016).min().shift(1).to_numpy()
     new_cols = pd.DataFrame(
       {
         "RSI_3": rsi_3,
         "RSI_4": rsi_4,
+        "IB_READY": ib_ready_col,
+        "IB_MOTHER_H": ib_mother_h_col,
+        "IB_MOTHER_L": ib_mother_l_col,
+        "ROC_288": roc_288_col,
+        "VOL_REL": vol_rel_col,
+        "PH_CROSS_CNT_12": ph_cross_cnt12_col,
+        "PH_BASE_POS": ph_base_pos_col,
+        "PH_PRE_TIGHT": ph_pre_tight_col,
+        "MRB_BULL": mrb_bull_col,
+        "MRB_BEAR": mrb_bear_col,
+        "DH_PREV_MIN": dh_prev_min_col,
+        "PB_HAMMER": hammer_col,
+        "PB_STAR": star_col,
+        "DC_HIGH_7D": dc_high_7d_col,
+        "DC_LOW_7D": dc_low_7d_col,
         "ENGULF_BULL": engulf_bull_col,
         "ENGULF_BEAR": engulf_bear_col,
 
@@ -12965,6 +13049,8 @@ class NostalgiaForInfinityX7(IStrategy):
     stochrsi_k_1d = np_view("STOCHRSIk_14_14_3_3_1d")
     rsi_3 = np_view("RSI_3")
     close = np_view("close")
+    high_px = np_view("high")
+    low_px = np_view("low")
     orange_h = np_view("ORANGE_H")
     orange_l = np_view("ORANGE_L")
     willr_14_4h = np_view("WILLR_14_4h")
@@ -13064,6 +13150,24 @@ class NostalgiaForInfinityX7(IStrategy):
 
     sfp_bull = np_view("SFP_BULL")
     sfp_bear = np_view("SFP_BEAR")
+    ib_ready = np_view("IB_READY")
+    ib_mother_h = np_view("IB_MOTHER_H")
+    ib_mother_l = np_view("IB_MOTHER_L")
+    roc_288 = np_view("ROC_288")
+    vol_rel = np_view("VOL_REL")
+    ph_cross_cnt_12 = np_view("PH_CROSS_CNT_12")
+    ph_base_pos = np_view("PH_BASE_POS")
+    ph_pre_tight = np_view("PH_PRE_TIGHT")
+    mrb_bull = np_view("MRB_BULL")
+    mrb_bear = np_view("MRB_BEAR")
+    dh_prev_min = np_view("DH_PREV_MIN")
+    pb_hammer = np_view("PB_HAMMER")
+    pb_star = np_view("PB_STAR")
+    adx_14_4h = np_view("ADX_14_4h")
+    plus_di_14_4h = np_view("PLUS_DI_14_4h")
+    minus_di_14_4h = np_view("MINUS_DI_14_4h")
+    dc_high_7d = np_view("DC_HIGH_7D")
+    dc_low_7d = np_view("DC_LOW_7D")
     global_protections_short_pump = np_view("global_protections_short_pump")
     global_protections_short_dump = np_view("global_protections_short_dump")
     roc_2 = np_view("ROC_2")
@@ -23320,6 +23424,19 @@ class NostalgiaForInfinityX7(IStrategy):
             & (((ema_50 - ema_200) / close * 100.0) < -5.5)
           )
 
+        # Condition #105 - Williams %R snapback (Long, experimental — Goodwin mean-reversion port).
+        if long_entry_condition_index == 105:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # money still flowing in on the hour and a healthy 4h — no dip-buying a bleed
+          long_entry_logic.append(cmf_20_1h > -0.02)
+          long_entry_logic.append(rsi_14_4h > 45.0)
+          # 1h close crosses INTO the oversold extreme (source strategy runs on 30m/1h scale)
+          long_entry_logic.append(willr_14_1h < -90.0)
+          long_entry_logic.append(np_shift(willr_14_1h, 12) >= -90.0)
+          # mean-revert WITH the daily trend: only long when the day is up
+          long_entry_logic.append(change_pct_1d > 0.0)
+
         # Condition #120 - Grind mode (Long).
         if long_entry_condition_index == 120:
           # Protections
@@ -26045,6 +26162,106 @@ class NostalgiaForInfinityX7(IStrategy):
           # prior 48-candle low swept by the wick, candle closes back above it
           long_entry_logic.append(sfp_bull > 0.5)
 
+        # Condition #169 - 1h inside-bar breakout (Long, experimental, RAW — TradingLab port).
+        if long_entry_condition_index == 169:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # trend side (source: trade only WITH the trend)
+          long_entry_logic.append(close > ema_200)
+          # 4h must participate in the breakout (fresh 4h upswing, not a stale drift)
+          long_entry_logic.append(aroonu_14_4h > 50.0)
+          long_entry_logic.append(stochrsi_k_4h > 55.0)
+          # last completed 1h candle was an inside bar; this 5m candle CROSSES above the mother high
+          long_entry_logic.append(ib_ready > 0.5)
+          long_entry_logic.append(np_shift(close, 1) <= ib_mother_h)
+          long_entry_logic.append(close > ib_mother_h)
+        # Condition #170 - Crash-bounce hunter (Long, experimental — capitulation relief rally).
+        if long_entry_condition_index == 170:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # capitulation context: crashed hard over the rolling 24h, daily fully washed
+          long_entry_logic.append(roc_288 < -15.0)
+          # ...but not a free-fall (deeper than -30 keeps falling)
+          long_entry_logic.append(roc_288 > -30.0)
+          long_entry_logic.append(rsi_3_1d < 15.0)
+          # fresh bounce only — 1h still deeply down; a half-recovered 1h means we are late
+          # (losses entered the SECOND leg / dead-cat top)
+          long_entry_logic.append(roc_9_1h < -5.0)
+          # real buyers on the reclaim candle: ~1.3x+ its 24h average volume
+          long_entry_logic.append(vol_rel > 1.3)
+          # still near the bottom (not already rallied away)
+          long_entry_logic.append(close < (close_min_48 * 1.08))
+          # the right side of the V: FIRST confirmed green close above the prior candle's high
+          long_entry_logic.append(close > open_rate)
+          long_entry_logic.append(close > np_shift(high_px, 1))
+
+        # Condition #171 - Pump hunter (Long, experimental, RAW — ignition candle rider).
+        if long_entry_condition_index == 171:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # calm base: not already pumped over the rolling 24h (ride ignition, don't chase)
+          long_entry_logic.append(roc_288 < 10.0)
+          # ignition: green candle CROSSING above the prior 48-candle high...
+          long_entry_logic.append(close > open_rate)
+          long_entry_logic.append(np_shift(close, 1) <= np_shift(close_max_48, 1))
+          long_entry_logic.append(close > np_shift(close_max_48, 1))
+          # ...on explosive volume (pump signature)
+          long_entry_logic.append(vol_rel > 3.0)
+          # NOTE: the measured PUMP CHARACTER columns (PH_BASE_POS d=0.95, PH_PRE_TIGHT d=0.65,
+          # PH_CROSS_CNT_12 first-fire counter) are defined above and ready for your protection
+          # pass — shipped RAW per our measurements (character gates halved damage but the raw
+          # form carries the highest WR; full matrix in the PR)
+
+        # Condition #172 - Marubozu momentum (Long, experimental — full-body ignition).
+        if long_entry_condition_index == 172:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # trend side + momentum side (the frame proven on the engulfing pair)
+          long_entry_logic.append(close > ema_200)
+          long_entry_logic.append(rsi_14 > 50.0)
+          # hourly money-flow must support the ignition (no conviction candle in a bleed)
+          long_entry_logic.append(cmf_20_1h > 0.02)
+          # 4h trend must agree — conviction candles inside brief above-EMA windows of a
+          # chronic downtrend are traps (the SOON cluster, verified on the chart)
+          long_entry_logic.append(ema_12_4h > ema_200_4h)
+          # full-body green candle: body >90% of range and a meaningful size
+          long_entry_logic.append(mrb_bull > 0.5)
+
+        # Condition #173 - Hammer pin-bar (Long, experimental, RAW — rejection wick at a dip).
+        if long_entry_condition_index == 173:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # dip context: near the 4h low, 5m washed
+          long_entry_logic.append(close < (close_min_48 * 1.03))
+          long_entry_logic.append(rsi_3 < 40.0)
+          # the fact: long lower rejection wick, tiny upper wick
+          long_entry_logic.append(pb_hammer > 0.5)
+
+        # Condition #7 - ADX trend-birth (Long, experimental, RAW — 4h trend ignition; big-win lane).
+        if long_entry_condition_index == 7:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # 4h ADX crossing UP through 20 = a trend being born (not yet mature)
+          long_entry_logic.append(adx_14_4h > 20.0)
+          long_entry_logic.append(np_shift(adx_14_4h, 48) <= 20.0)
+          # direction: bulls own it
+          long_entry_logic.append(plus_di_14_4h > minus_di_14_4h)
+          long_entry_logic.append(close > ema_200)
+
+        # Condition #8 - Donchian 7-day breakout (Long, experimental — turtle-style; big-win lane).
+        if long_entry_condition_index == 8:
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+          # first close above the prior 7-DAY high (macro breakout event)
+          long_entry_logic.append(close > open_rate)
+          long_entry_logic.append(np_shift(close, 1) <= dc_high_7d)
+          long_entry_logic.append(close > dc_high_7d)
+          # not a one-candle spike fake, and the 4h is not already overheated
+          # (measured on the export W/L split; real run: tag 8 84.0%->88.3% WR, damage -50.4K->-27.7K)
+          long_entry_logic.append(((high_px - low_px) / close) < 0.025)
+          long_entry_logic.append(roc_9_4h < 20.0)
+
+
         # Condition #192 - Quad-rotation stochastic pullback (Long, experimental).
         if long_entry_condition_index == 192:
           # --- Protections ---
@@ -27931,6 +28148,18 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append(rsi_20 > rsi_20_shift_1)
           short_entry_logic.append(close > sma_16 * 1.042)
 
+        # Condition #605 - Williams %R snapback (Short, experimental — mirror).
+        if short_entry_condition_index == 605:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          # never fade the bounce of a fully-capitulated daily (violent squeeze habitat)
+          short_entry_logic.append(rsi_3_1d > 12.0)
+          # 1h close crosses INTO the overbought extreme
+          short_entry_logic.append(willr_14_1h > -10.0)
+          short_entry_logic.append(np_shift(willr_14_1h, 12) <= -10.0)
+          # mean-revert WITH the daily trend: only short when the day is down
+          short_entry_logic.append(change_pct_1d < 0.0)
+
         # Condition #661 - Scalp mode (Short).
         if short_entry_condition_index == 661:
           # Protections
@@ -28106,6 +28335,66 @@ class NostalgiaForInfinityX7(IStrategy):
           short_entry_logic.append(protections_short_global == True)
           # prior 48-candle high swept by the wick, candle closes back below it
           short_entry_logic.append(sfp_bear > 0.5)
+
+        # Condition #667 - 1h inside-bar breakout (Short, experimental, RAW — mirror).
+        if short_entry_condition_index == 667:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          short_entry_logic.append(close < ema_200)
+          # don't short a breakdown when the daily cycle already sits low (bounce zone)
+          short_entry_logic.append(stochrsi_k_1d < 48.0)
+          # last completed 1h candle was an inside bar; this 5m candle CROSSES below the mother low
+          short_entry_logic.append(ib_ready > 0.5)
+          short_entry_logic.append(np_shift(close, 1) >= ib_mother_l)
+          short_entry_logic.append(close < ib_mother_l)
+        # Condition #670 - Marubozu momentum (Short, experimental, RAW — mirror).
+        if short_entry_condition_index == 670:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          short_entry_logic.append(close < ema_200)
+          short_entry_logic.append(rsi_14 < 50.0)
+          short_entry_logic.append(mrb_bear > 0.5)
+
+        # Condition #669 - Dump hunter (Short, experimental, RAW — crash ignition, mirror of 171).
+        if short_entry_condition_index == 669:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          # calm base: not already crashed over the rolling 24h (ride ignition, don't chase)
+          short_entry_logic.append(roc_288 > -10.0)
+          # ignition: red candle CROSSING below the prior 48-candle low...
+          short_entry_logic.append(close < open_rate)
+          short_entry_logic.append(np_shift(close, 1) >= dh_prev_min)
+          short_entry_logic.append(close < dh_prev_min)
+          # ...on explosive volume (dump signature)
+          short_entry_logic.append(vol_rel > 3.0)
+
+        # Condition #671 - Shooting-star pin-bar (Short, experimental, RAW — mirror at a top).
+        if short_entry_condition_index == 671:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          # top context: near the 4h high, 5m hot
+          short_entry_logic.append(close > (close_max_48 * 0.97))
+          short_entry_logic.append(rsi_3 > 60.0)
+          # the fact: long upper rejection wick, tiny lower wick
+          short_entry_logic.append(pb_star > 0.5)
+
+        # Condition #505 - ADX trend-birth (Short, experimental, RAW — mirror).
+        if short_entry_condition_index == 505:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          short_entry_logic.append(adx_14_4h > 20.0)
+          short_entry_logic.append(np_shift(adx_14_4h, 48) <= 20.0)
+          short_entry_logic.append(minus_di_14_4h > plus_di_14_4h)
+          short_entry_logic.append(close < ema_200)
+
+        # Condition #506 - Donchian 7-day breakdown (Short, experimental, RAW — mirror).
+        if short_entry_condition_index == 506:
+          short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          short_entry_logic.append(protections_short_global == True)
+          short_entry_logic.append(close < open_rate)
+          short_entry_logic.append(np_shift(close, 1) >= dc_low_7d)
+          short_entry_logic.append(close < dc_low_7d)
+
 
         # Condition #592 - Quad-rotation stochastic pullback (Short, experimental).
         if short_entry_condition_index == 592:
