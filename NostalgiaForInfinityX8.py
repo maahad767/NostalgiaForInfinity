@@ -71,7 +71,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.1"
+    return "v18.0.2"
 
   stoploss = -0.99
 
@@ -234,6 +234,7 @@ class NostalgiaForInfinityX8(IStrategy):
     + short_high_profit_mode_tags
     + short_rapid_mode_tags
     + short_grind_mode_tags
+    + short_top_coins_mode_tags
     + short_scalp_mode_tags
   )
 
@@ -1869,6 +1870,7 @@ class NostalgiaForInfinityX8(IStrategy):
     short_rebuy_mode_tags = self.short_rebuy_mode_tags
     short_high_profit_mode_tags = self.short_high_profit_mode_tags
     short_rapid_mode_tags = self.short_rapid_mode_tags
+    short_top_coins_mode_tags = self.short_top_coins_mode_tags
     short_scalp_mode_tags = self.short_scalp_mode_tags
     short_scalp_rebuy_grind_mode_tags = self.short_scalp_rebuy_grind_mode_tags
     short_exit_known_mode_tags = self.short_exit_known_mode_tags
@@ -2292,6 +2294,29 @@ class NostalgiaForInfinityX8(IStrategy):
         profit_init_ratio,
         max_profit,
         max_loss,
+        filled_entries,
+        filled_exits,
+        last_candle,
+        previous_candle_1,
+        trade,
+        current_time,
+        enter_tags,
+      )
+      if sell and (signal_name is not None):
+        return f"{signal_name} ( {enter_tag})"
+
+    # Short Top Coins mode
+    if any(c in short_top_coins_mode_tags for c in enter_tags):
+      sell, signal_name = self.short_exit_top_coins(
+        pair,
+        current_rate,
+        profit_stake,
+        profit_ratio,
+        profit_current_stake_ratio,
+        profit_init_ratio,
+        max_profit,
+        max_loss,
+        filled_orders,
         filled_entries,
         filled_exits,
         last_candle,
@@ -15090,6 +15115,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_60) | (stochrsi_k_1h_lt_60) | (stochrsi_k_1d_lt_90) | (roc_9_1d_lt_80))
             # 1h down move, 1d downtrend, 1h high, 4h high
             & ((rsi_3_1h_gt_65) | (cmf_20_1d_gt_neg_0_10) | (aroonu_14_1h_lt_90) | (stochrsi_k_4h_lt_90))
+            # 1h down move, 1d downtrend, 1h high, 4h high
+            & ((rsi_3_1h_gt_65) | (cmf_20_1d_gt_neg_0_20) | (aroonu_14_1h_lt_80) | (aroonu_14_4h_lt_100))
             # 1h down move, 1h high, 4h high
             & ((rsi_3_1h_gt_65) | (aroonu_14_1h_lt_100) | (stochrsi_k_4h_lt_90))
             # 1h down move, 1h & 4h overbought
@@ -25397,7 +25424,6 @@ class NostalgiaForInfinityX8(IStrategy):
     current_time: "datetime",
     buy_tag,
   ) -> tuple:
-
     #  Here ends exit signal conditions for long_exit_williams_r
 
     return False, None
@@ -25416,7 +25442,6 @@ class NostalgiaForInfinityX8(IStrategy):
     current_time: "datetime",
     buy_tag,
   ) -> tuple:
-
     #  Here ends exit signal conditions for long_exit_dec
 
     return False, None
@@ -39583,7 +39608,6 @@ class NostalgiaForInfinityX8(IStrategy):
     current_time: "datetime",
     buy_tag,
   ) -> tuple:
-
     #  Here ends exit signal conditions for short_exit_williams_r
 
     return False, None
@@ -39602,7 +39626,6 @@ class NostalgiaForInfinityX8(IStrategy):
     current_time: "datetime",
     buy_tag,
   ) -> tuple:
-
     #  Here ends exit signal conditions for short_exit_dec
 
     return False, None
