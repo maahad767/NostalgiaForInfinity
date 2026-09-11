@@ -71,7 +71,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.28"
+    return "v18.0.29"
 
   stoploss = -0.99
 
@@ -3052,6 +3052,17 @@ class NostalgiaForInfinityX8(IStrategy):
     return out
 
   @staticmethod
+  def obv_change_pct(obv: np.ndarray) -> np.ndarray:
+    """Measure OBV movement relative to the magnitude of its previous value."""
+    obv = np.asarray(obv, dtype=np.float64)
+    out = np.full(obv.shape, np.nan, dtype=np.float64)
+    prev = obv[:-1]
+    valid = np.isfinite(prev) & np.isfinite(obv[1:]) & (prev != 0)
+    np.divide(obv[1:] - prev, np.abs(prev), out=out[1:], where=valid)
+    out[1:] *= 100.0
+    return out
+
+  @staticmethod
   def stochrsi_k(rsi_14: np.ndarray, ta_min: np.ndarray, ta_max: np.ndarray, ta_sma: np.ndarray) -> np.ndarray:
     """
     Calculate the %K line of the Stochastic RSI.
@@ -3808,7 +3819,7 @@ class NostalgiaForInfinityX8(IStrategy):
     rsi_3_change = fast_pct_change(rsi_3)
     rsi_14_change = fast_pct_change(rsi_14)
     uo_change = fast_pct_change(uo)
-    obv_change = fast_pct_change(obv)
+    obv_change = self.obv_change_pct(obv)
     cci_change = fast_pct_change(cci_20)
 
     # =========================================================================
@@ -3990,7 +4001,7 @@ class NostalgiaForInfinityX8(IStrategy):
     # CHANGE %
     # =========================================================================
     rsi_14_change = fast_pct_change(rsi_14)
-    obv_change = fast_pct_change(obv)
+    obv_change = self.obv_change_pct(obv)
 
     # =========================================================================
     # CANDLE %
@@ -9352,6 +9363,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_5) | (aroonu_14_1h_lt_70) | (aroonu_14_4h_lt_90))
             # 15m down move, 15m & 1h still not low enough
             & ((rsi_3_15m_gt_5) | (stochrsi_k_15m_lt_30) | (stochrsi_k_1h_lt_30))
+            # 15m & 1h & 4h & 1d down move, 1d downtrend
+            & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_10) | (rsi_3_4h_gt_40) | (rsi_3_1d_gt_50) | (roc_9_1d_gt_neg_20))
             # 15m & 1h down move, 1h still high
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_20) | (stochrsi_k_1h_lt_50))
             # 15m & 1h down move, 4h still high
@@ -16113,6 +16126,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_25) | aroonu_14_4h_lt_80 | roc_9_1d_lt_50)
             # 15m & 1h down move, 1h high
             & ((rsi_3_15m_gt_30) | (rsi_3_1h_gt_45) | (aroonu_14_1h_lt_60))
+            # 15m & 1d down move, 15m still high, 1h high
+            & ((rsi_3_15m_gt_30) | (rsi_3_1d_gt_35) | (aroonu_14_15m_lt_40) | (aroonu_14_1h_lt_80))
             # 15m down move, 15m high, 4h still high
             & ((rsi_3_15m_gt_30) | (aroonu_14_15m_lt_70) | (aroonu_14_4h_lt_50))
             # 15m down move, 15m still not low enough, 1h high
@@ -19752,6 +19767,7 @@ class NostalgiaForInfinityX8(IStrategy):
         if long_entry_condition_index == 165:
           long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
           long_entry_logic.append(protections_long_global == True)
+          long_entry_logic.append((sqz_cnt_24 > 14) | (mfi_14_1d < 45.0) | (willr_14_4h < -50.0))
           # trend filter (video: "only clear trends") + impulse quality (never draw fibs in chop)
           long_entry_logic.append(ema_12_4h > ema_200_4h)
           # R1 (eyeball): only a CLEAN ACTIVE uptrend — whipsaw chop (RIVER) has rsi_4h ~50 and stale 4h highs
@@ -20066,6 +20082,14 @@ class NostalgiaForInfinityX8(IStrategy):
           # --- Protections ---
           long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
           long_entry_logic.append(protections_long_global == True)
+          long_entry_logic.append(
+            (cmf_20_15m > 0.0)
+            & (adx_14_4h > 20.0)
+            & (change_pct_4h > -8.0)
+            & ((willr_14_15m > -40.0) | (uo_7_14_28_15m < 50.0) | (stochrsi_k_1d > 25.0))
+            & ((cmf_20_1h < 0.05) | (stochk_14_3_3_1h > 80.0) | stochrsi_k_1d_gt_10)
+            & ((cmf_20_1h > 0.15) | (cmf_20_4h > 0.0) | rsi_3_1d_gt_20)
+          )
           # --- Logic: embedded up-regime + quad-oversold + two-pivot bullish divergence ---
           long_entry_logic.append(stoch_60_10 > 80.0)
           long_entry_logic.append(stoch_9_3 < 20.0)
