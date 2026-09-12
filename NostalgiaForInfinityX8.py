@@ -71,7 +71,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.35"
+    return "v18.0.36"
 
   stoploss = -0.99
 
@@ -15349,6 +15349,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_65) | (cmf_20_1d_gt_neg_0_20) | (aroonu_14_1h_lt_80) | (aroonu_14_4h_lt_100))
             # 1h down move, 1h high, 4h high
             & ((rsi_3_1h_gt_65) | (aroonu_14_1h_lt_100) | (stochrsi_k_4h_lt_90))
+            # 1h down move, 4h high, 1d high & overbought
+            & ((rsi_3_1h_gt_65) | (aroonu_14_4h_lt_70) | (aroonu_14_1d_lt_100) | (roc_9_1d_lt_200))
             # 1h down move, 1h & 1d high & overbought
             & ((rsi_3_1h_gt_65) | (stochrsi_k_1h_lt_80) | (stochrsi_k_1d_lt_90) | (roc_9_1h_lt_10) | (roc_9_1d_lt_20))
             # 1h down move, 1h & 4h overbought
@@ -21096,6 +21098,299 @@ class NostalgiaForInfinityX8(IStrategy):
           short_entry_logic.append(protections_short_global == True)
 
           short_entry_logic.append(
+            # 4h a long upper wick, 5m momentum alive and daily a long lower wick
+            ((rsi_3 < 20) | (top_wick_pct_4h < 2) | (bot_wick_pct_1d < 2))
+            # 4h a long upper wick, 5m momentum alive and a trend established
+            & ((rsi_3 < 20) | (adx_14_4h < 25) | (top_wick_pct_4h < 2.5))
+            # 15m high in its range, 5m momentum alive and 1h a new high
+            & ((rsi_3 < 25) | (willr_14_15m < -70) | (aroonu_14_1h < 30))
+            # 15m stochastic high, 5m momentum alive and daily no recent low
+            & ((stochrsi_k_15m < 45) | (rsi_3 < 25) | (aroond_14_1d > 85))
+            # 15m a new high, 5m the coil's floor lifted and not oversold
+            & ((quad_s93_min_12 < 10) | (rsi_4 < 15) | (aroonu_14_15m < 45))
+            # 5m not oversold, tightly squeezed and 1h stochastic at the floor
+            & ((rsi_4 < 20) | (sqz_cnt_24 < 15) | (stochrsi_k_1h > 5))
+            # 4h at an extreme low, 5m not oversold and 1h not down
+            & ((rsi_4 < 25) | (change_pct_1h < -1) | (cci_20_4h > -230))
+            # daily falling, 5m not oversold and 4h stochastic high
+            & ((rsi_14 < 35) | (stochrsi_k_4h < 30) | (roc_2_1d > -8))
+            # 4h money leaving, 5m not oversold and daily not down
+            & ((rsi_14 < 35) | (cmf_20_4h > -0.2) | (change_pct_1d < -2.5))
+            # 4h downtrend set, 5m not oversold and 15m oscillator lifting
+            & ((rsi_14 < 35) | (uo_7_14_28_change_pct_15m < 0) | (minus_di_14_4h < 35))
+            # 15m high in its range, 4h stochastic high and 5m not oversold
+            & ((rsi_14 < 30) | (willr_14_15m < -75) | (stochrsi_k_4h < 65))
+            # 5m the last 24h fell hard, momentum falling and 4h stochastic high
+            & ((roc_288 > -11) | (rsi_14_change_pct > -30) | (stochrsi_k_4h < 25))
+            # 4h no recent low, daily falling and 5m momentum falling
+            & ((rsi_14_change_pct > -20) | (aroond_14_4h > 50) | (roc_2_1d > -8))
+            # 4h stochastic high, 5m momentum falling and daily falling
+            & ((rsi_14_change_pct > -30) | (stochrsi_k_4h < 70) | (roc_2_1d > -4.5))
+            # 15m oscillator falling, 5m momentum rising and daily money drained
+            & ((rsi_14_change_pct < -5) | (uo_7_14_28_change_pct_15m > -20) | (mfi_14_1d > 35))
+            # 15m money flowing in, 5m momentum falling and 4h not falling
+            & ((rsi_14_change_pct > -30) | (mfi_14_15m < 40) | (roc_9_4h < -1.5))
+            # 1h momentum dead, 5m tightly squeezed and not oversold
+            & ((rsi_20 < 35) | (sqz_cnt_24 < 12) | (rsi_3_1h > 5))
+            # 1h momentum snapping up, 5m stochastic high and a new high
+            & ((aroonu_14 < 45) | (stochrsi_k < 60) | (rsi_3_change_pct_1h < 90))
+            # 4h momentum rising, 5m tightly squeezed and stochastic high
+            & ((sqz_cnt_24 < 10) | (stochrsi_k < 25) | (rsi_14_change_pct_4h < 5))
+            # 5m fast stochastic high, stochastic high and 15m stochastic high
+            & ((stoch_4_4 < 25) | (stochrsi_k < 55) | (stochrsi_k_15m < 60))
+            # 5m stochastic high, 15m money leaving and 1h not extended
+            & ((stochrsi_k < 35) | (cmf_20_15m > -0.2) | (cci_20_1h < -65))
+            # 1h oscillator high, daily oversold and 5m stochastic high
+            & ((stochrsi_k < 20) | (uo_7_14_28_1h < 50) | (rsi_14_1d > 35))
+            # daily falling, 5m stochastic high and 1h no new high
+            & ((stochrsi_k < 65) | (aroonu_14_1h > 5) | (roc_9_1d > -30))
+            # 1h money flowing in, 5m stochastic high and 15m money leaving
+            & ((stochrsi_k < 40) | (cmf_20_15m > -0.25) | (mfi_14_1h < 50))
+            # 1h stochastic high, 5m stochastic high and daily stochastic at the floor
+            & ((stochrsi_k < 50) | (stochk_14_3_3_1h < 35) | (stochrsi_k_1d > 5))
+            # 15m momentum alive, 5m stochastic at the floor and 4h money drained
+            & ((rsi_3_15m < 20) | (stochrsi_k > 0) | (mfi_14_4h > 20))
+            # 5m a volume spike, stochastic high and daily a recent low
+            & ((vol_rel < 15) | (stochrsi_k < 50) | (aroond_14_1d < 90))
+            # 5m falling and daily at the floor of its range
+            & ((roc_9 > -4) | stochrsi_k_lt_20 | (willr_14_1d > -90))
+            # daily stochastic high, not falling and 5m stochastic high
+            & ((stoch_14_3 < 15) | (roc_2_1d < 2) | (stochk_14_3_3_1d < 50))
+            # daily stochastic high, 5m fast stochastic high and money drained
+            & ((stoch_4_4 < 35) | (mfi_14_1d > 40) | (stochrsi_k_1d < 80))
+            # 4h momentum snapping up, 5m stochastic high and no trend established
+            & ((stoch_9_3 < 25) | (adx_14_4h > 20) | (rsi_3_change_pct_4h < 45))
+            # 4h a long upper wick, 5m stochastic high and 1h at an extreme low
+            & ((stoch_9_3 < 20) | (cci_20_1h > -185) | (top_wick_pct_4h < 2.5))
+            # 15m money drained, daily at the floor of its range and 5m stochastic high
+            & ((stoch_9_3 < 20) | (mfi_14_15m > 10) | (willr_14_1d > -95))
+            # 4h momentum dead, 5m stochastic at the floor and 1h the two-day window off its floor
+            & ((stoch_9_3 > 5) | (willr_84_1h < -85) | (rsi_3_4h > 5))
+            # 4h at an extreme low, 5m money flowing in and downtrend weak
+            & ((mfi_14 < 45) | (cci_20_4h > -230) | (minus_di_14_4h > 30))
+            # 5m money flowing in, the two-day window off its floor and daily a recent low
+            & ((mfi_14 < 45) | (willr_480 < -90) | (aroond_14_1d < 65))
+            # 5m the last 24h fell hard, money drained and 1h high in its range
+            & ((mfi_14 > 15) | (roc_288 > -23) | (willr_14_1h < -90))
+            # 15m stochastic at the floor, 5m money flowing in and 4h no trend established
+            & ((mfi_14 < 40) | (stochrsi_k_15m > 5) | (adx_14_4h > 25))
+            # 1h momentum alive, 5m money flowing in and daily no recent low
+            & ((mfi_14 < 40) | (rsi_3_1h < 40) | (aroond_14_1d > 5))
+            # 5m money flowing in, 15m money flowing in and stochastic high
+            & ((cmf_20 < 0) | (mfi_14_15m < 45) | (stochrsi_k_15m < 60))
+            # 5m money flowing in, the coil's roof low and 1h falling
+            & ((cmf_20 < 0.05) | (quad_s93_max_12 > 45) | (roc_2_1h > -2))
+            # 4h stochastic high, daily not falling and 5m money leaving
+            & ((cmf_20 > -0.3) | (stochrsi_k_4h < 70) | (roc_9_1d < 0))
+            # 4h a new high, 5m money flowing in and daily stochastic high
+            & ((cmf_20 < 0) | (aroonu_14_4h < 50) | (stochrsi_k_1d < 10))
+            # 15m stochastic high, 5m money leaving and 4h stochastic at the floor
+            & ((cmf_20 > -0.45) | (stochrsi_k_15m < 25) | (stochrsi_k_4h > 5))
+            # 5m no recent low, 4h money drained and oscillator high
+            & ((aroond_14 > 75) | (mfi_14_4h > 30) | (uo_7_14_28_4h < 50))
+            # 5m a new high, the coil's roof low and 4h no new high
+            & ((aroonu_14 < 15) | (quad_s93_max_12 > 35) | (aroonu_14_4h > 5))
+            # 15m money flowing in, daily falling and 5m a new high
+            & ((aroonu_14 < 40) | (cmf_20_15m < 0.05) | (roc_2_1d > -8))
+            # 1h money flowing in, 5m high in its range and 4h no new high
+            & ((willr_14 < -70) | (cmf_20_1h < 0.1) | (aroonu_14_4h > 5))
+            # 4h at an extreme low, daily money drained and 5m the last 24h fell hard
+            & ((roc_288 > -10) | (cci_20_4h > -205) | (mfi_14_1d > 20))
+            # 1h down, 5m not falling and a new high
+            & ((roc_9 < -1.5) | (aroonu_14_1h < 45) | (change_pct_1h > -4.5))
+            # 15m no new high, 4h momentum rising and 5m not falling
+            & ((roc_9 < -0.95) | (aroonu_14_15m > 5) | (rsi_14_change_pct_4h < 5))
+            # 15m at an extreme low, 5m not falling and 1h at an extreme low
+            & ((roc_9 < -1.5) | (cci_20_15m > -340) | (cci_20_1h > -145))
+            # 15m money drained, 5m falling and 1h momentum rising
+            & ((roc_9 > -5.5) | (mfi_14_15m > 5) | (rsi_14_change_pct_1h < -15))
+            # 5m not falling, 15m momentum dead and 1h momentum snapping up
+            & ((roc_9 < -2.5) | (rsi_3_15m > 10) | (rsi_3_change_pct_1h < 80))
+            # 4h stochastic turning up, 5m not falling and daily a recent low
+            & ((stochrsi_k_change_pct_4h < 40.0) | (roc_9 < -0.5) | (aroond_14_1d < 80))
+            # 4h momentum dead, 5m a volume spike and money flowing in
+            & ((vol_rel < 12) | (mfi_14_4h < 30) | (rsi_3_4h > 5))
+            # 5m tightly squeezed, the coil's floor lifted and 1h at the floor of its range
+            & ((quad_s93_min_12 < 10) | (sqz_cnt_24 < 15) | (willr_14_1h > -90))
+            # 4h falling, 5m tightly squeezed and 1h money leaving
+            & ((sqz_cnt_24 < 15) | (cmf_20_1h > -0.2) | (roc_2_4h > -7))
+            # daily a long lower wick, 5m tightly squeezed and at the floor of its range
+            & ((sqz_cnt_24 < 16) | (bot_wick_pct_1d < 3) | (willr_14_1d > -85))
+            # daily momentum snapping up, 5m tightly squeezed and stochastic at the floor
+            & ((sqz_cnt_24 < 15) | (rsi_3_change_pct_1d < 35) | (stochrsi_k_1d > 5))
+            # 4h stochastic high, daily not oversold and 5m tightly squeezed
+            & ((sqz_cnt_24 < 10) | (stochrsi_k_4h < 50) | (rsi_14_1d < 55))
+            # 15m no new high, 4h money drained and 5m tightly squeezed
+            & ((sqz_cnt_24 < 10) | (aroonu_14_15m > 20) | (mfi_14_4h > 15))
+            # 1h not down, daily not down and 5m tightly squeezed
+            & ((change_pct_1h < 0.0) | (change_pct_1d < 2.0) | (sqz_cnt_24 < 15))
+            # 1h stochastic at the floor, 5m the coil's roof low and daily money flowing in
+            & ((quad_s93_max_12 > 35) | (stochk_14_3_3_1h > 10) | (mfi_14_1d < 60))
+            # 15m money drained, 5m the coil's roof lifted and daily at the floor of its range
+            & ((quad_s93_max_12 < 85) | (mfi_14_15m > 10) | (willr_14_1d > -90))
+            # 15m momentum alive, 5m the coil's roof low and daily no recent low
+            & ((quad_s93_max_12 > 55) | (rsi_3_15m < 35) | (aroond_14_1d > 45))
+            # 15m no recent low, 5m the coil's roof low and 1h falling
+            & ((quad_s93_max_12 > 55) | (aroond_14_15m > 55) | (roc_9_1h > -6.5))
+            # 4h a long upper wick, 5m the coil's roof low and a new high
+            & ((quad_s93_max_12 > 25) | (aroonu_14_4h < 45) | (top_wick_pct_4h < 1.5))
+            # 5m the coil's roof low, 1h oversold and 15m momentum falling
+            & ((quad_s93_max_12 > 60) | (rsi_14_change_pct_15m > -20) | (rsi_14_1h > 20))
+            # 4h a long upper wick, 5m the coil's roof low and daily money flowing in
+            & ((quad_s93_max_12 > 25) | (top_wick_pct_4h < 1.5) | (cmf_20_1d < 0.05))
+            # 4h oversold, 5m the coil's roof low and daily no upper wick
+            & ((quad_s93_max_12 > 35) | (rsi_14_4h > 25) | (top_wick_pct_1d > 0.6))
+            # 5m the coil's floor lifted, 15m stochastic at the floor and daily money drained
+            & ((quad_s93_min_12 < 10) | (stochrsi_k_15m > 10) | (mfi_14_1d > 25))
+            # 4h falling, 5m the coil's floor lifted and 15m money drained
+            & ((quad_s93_min_12 < 10) | (mfi_14_15m > 20) | (roc_9_4h > -8))
+            # 1h no new high, 5m the coil's floor lifted and stochastic high
+            & ((quad_s93_min_12 < 5) | (aroonu_14_1h > 10) | (stochk_14_3_3_1h < 35))
+            # 4h not down, 5m the coil's floor lifted and daily at the floor of its range
+            & ((quad_s93_min_12 < 10) | (change_pct_4h < 0) | (willr_14_1d > -85))
+            # 15m at an extreme low, momentum alive and 4h stochastic at the floor
+            & ((cci_20_15m > -195) | (rsi_3_15m < 25) | (stochrsi_k_4h > 15))
+            # 4h momentum falling, daily a long upper wick and 15m momentum alive
+            & ((rsi_3_15m < 5) | (rsi_14_change_pct_4h > -25) | (top_wick_pct_1d < 3))
+            # 15m momentum alive, 1h money flowing in and 4h money flowing in
+            & ((rsi_3_15m < 35) | (cmf_20_1h < 0.05) | (cmf_20_4h < 0.05))
+            # 15m momentum snapping up, a new high and 4h falling
+            & ((aroonu_14_15m < 45) | (rsi_3_change_pct_15m < 50) | (roc_2_4h > -2))
+            # 15m momentum falling, money flowing in and 4h stochastic high
+            & ((cmf_20_15m < -0.05) | (rsi_14_change_pct_15m > -35) | (stochrsi_k_4h < 50))
+            # 15m momentum falling, money flowing in and 1h a new high
+            & ((cmf_20_15m < 0.05) | (rsi_14_change_pct_15m > -25) | (aroonu_14_1h < 30))
+            # 1h stochastic high, 4h momentum falling and 15m momentum falling
+            & ((rsi_14_change_pct_15m > -25) | (stochk_14_3_3_1h < 35) | (rsi_14_change_pct_4h > -22))
+            # 15m no recent low, stochastic at the floor and daily stochastic high
+            & ((aroond_14_15m > 45) | (stochrsi_k_15m > 15) | (stochrsi_k_1d < 20))
+            # 15m stochastic high, daily a long upper wick and 4h no trend established
+            & ((stochrsi_k_15m < 65) | (adx_14_4h > 30) | (top_wick_pct_1d < 6))
+            # 15m stochastic high, 1h oversold and 4h stochastic high
+            & ((stochrsi_k_15m < 65) | (rsi_14_1h > 20) | (stochrsi_k_4h < 20))
+            # 15m money flowing in, 4h stochastic high and daily no recent low
+            & ((mfi_14_15m < 35) | (stochk_14_3_3_4h < 40) | (aroond_14_1d > 5))
+            # 15m money flowing in, daily falling and 1h money flowing in
+            & ((cmf_20_15m < -0.05) | (cmf_20_1h < 0) | (roc_2_1d > -13))
+            # 1h a new high, 15m money flowing in and daily a long upper wick
+            & ((cmf_20_15m < 0.1) | (aroonu_14_1h < 10) | (top_wick_pct_1d < 2))
+            # 15m oscillator low, daily a long upper wick and 4h stochastic at the floor
+            & ((uo_7_14_28_15m > 30) | (stochk_14_3_3_4h > 20) | (top_wick_pct_1d < 4))
+            # daily no new high, 4h momentum snapping up and 15m oscillator high
+            & ((uo_7_14_28_15m < 50) | (rsi_3_change_pct_4h < -20) | (aroonu_14_1d > 20))
+            # 15m oscillator high, 4h not falling and a recent low
+            & ((uo_7_14_28_15m < 50) | (aroond_14_4h < 90) | (roc_9_4h < -2))
+            # 15m oscillator high, 1h stochastic high and daily no new high
+            & ((uo_7_14_28_15m < 50) | (stochk_14_3_3_1h < 40) | (aroonu_14_1d > 5))
+            # 15m oscillator lifting, 1h not down and 4h a recent low
+            & ((uo_7_14_28_change_pct_15m < 10) | (change_pct_1h < 0) | (aroond_14_4h < 95))
+            # 15m oscillator lifting, 4h money leaving and 1h falling
+            & ((uo_7_14_28_change_pct_15m < 5) | (roc_2_1h > -5) | (cmf_20_4h > -0.25))
+            # 15m at an extreme low, 4h falling and 1h not falling
+            & ((cci_20_15m > -290) | (roc_2_1h < -2.5) | (roc_2_4h > -7))
+            # 15m a new high, no recent low and daily money flowing in
+            & ((aroond_14_15m > 75) | (aroonu_14_15m < 45) | (cmf_20_1d < 0.15))
+            # 15m a new high, daily money drained and stochastic high
+            & ((aroonu_14_15m < 45) | (mfi_14_1d > 45) | (stochrsi_k_1d < 80))
+            # 15m a new high, daily momentum snapping up and 4h not falling
+            & ((aroonu_14_15m < 65) | (roc_2_4h < -1) | (rsi_3_change_pct_1d < 40))
+            # 15m a new high, daily momentum snapping up and 1h not falling
+            & ((aroonu_14_15m < 65) | (roc_9_1h < -1.5) | (rsi_3_change_pct_1d < 15))
+            # 15m a new high, falling and 1h money flowing in
+            & ((aroonu_14_15m < 45) | (roc_9_15m > -7) | (cmf_20_1h < -0.15))
+            # 15m high in its range, 4h stochastic high and 1h money leaving
+            & ((willr_14_15m < -70) | (cmf_20_1h > -0.15) | (stochrsi_k_4h < 65))
+            # 15m not falling, 1h high in its range and daily a long upper wick
+            & ((roc_9_15m < -1) | (willr_14_1h < -70) | (top_wick_pct_1d < 3.5))
+            # 1h a new high, 4h money leaving and 15m falling
+            & ((roc_9_15m > -6) | (aroonu_14_1h < 60) | (cmf_20_4h > -0.1))
+            # 1h a new high, daily money leaving and 15m falling
+            & ((roc_9_15m > -3) | (aroonu_14_1h < 50) | (cmf_20_1d > -0.2))
+            # 1h not oversold, money leaving and a new high
+            & ((aroonu_14_1h < 15) | (cmf_20_1h > -0.2) | (rsi_14_1h < 35))
+            # 1h oversold, daily high in its range and at an extreme low
+            & ((cci_20_1h > -300) | (rsi_14_1h > 20) | (willr_14_1d < -30))
+            # 1h no new high, 4h falling and momentum rising
+            & ((aroonu_14_1h > 10) | (rsi_14_change_pct_1h < 5) | (roc_2_4h > -8))
+            # 1h stochastic high, 4h no recent low and oversold
+            & ((stochrsi_k_1h < 35) | (aroond_14_4h > 45) | (rsi_14_4h > 30))
+            # daily money drained, a new high and 1h stochastic at the floor
+            & ((stochrsi_k_1h > 15) | (aroonu_14_1d < 55) | (mfi_14_1d > 30))
+            # 4h a trend established, money leaving and 1h stochastic high
+            & ((stochk_14_3_3_1h < 20) | (adx_14_4h < 45) | (cmf_20_4h > -0.2))
+            # 1h stochastic high, 4h a trend established and daily oversold
+            & ((stochk_14_3_3_1h < 50) | (adx_14_4h < 35) | (rsi_14_1d > 35))
+            # 1h money drained, daily momentum dead and at an extreme low
+            & ((cci_20_1h > -250) | (mfi_14_1h > 15) | (rsi_3_1d > 20))
+            # 1h money flowing in, 4h momentum falling and daily a recent low
+            & ((mfi_14_1h < 50) | (rsi_14_change_pct_4h > -25) | (aroond_14_1d < 30))
+            # 1h no recent low, 4h no trend established and money leaving
+            & ((aroond_14_1h > 15) | (adx_14_4h > 15) | (cmf_20_1h > -0.05))
+            # 1h money flowing in, 4h a trend established and daily a new high
+            & ((cmf_20_1h < 0.15) | (adx_14_4h < 40) | (aroonu_14_1d < 40))
+            # 1h money leaving, daily a long lower wick and 4h stochastic high
+            & ((cmf_20_1h > -0.25) | (stochrsi_k_4h < 55) | (bot_wick_pct_1d < 4))
+            # 1h oscillator high, daily no recent low and 4h money flowing in
+            & ((uo_7_14_28_1h < 55) | (cmf_20_4h < -0.05) | (aroond_14_1d > 5))
+            # 1h oscillator high, daily not falling and 4h stochastic falling
+            & ((uo_7_14_28_1h < 50) | (stochrsi_k_change_pct_4h > -60) | (roc_9_1d < 4))
+            # 4h momentum falling, daily momentum snapping up and 1h a recent low
+            & ((aroond_14_1h < 90) | (rsi_14_change_pct_4h > -25) | (rsi_3_change_pct_1d < 110))
+            # 1h no recent low, 4h stochastic high and daily not falling
+            & ((aroond_14_1h > 15) | (stochrsi_k_4h < 65) | (roc_9_1d < -10))
+            # 4h stochastic high, 1h high in its range and daily down
+            & ((willr_14_1h < -95) | (stochrsi_k_4h < 40) | (change_pct_1d > -10))
+            # 1h the two-day window off its floor, 4h a trend established and oversold
+            & ((willr_84_1h < -85) | (adx_14_4h < 45) | (rsi_14_4h > 25))
+            # daily momentum alive, 4h momentum alive and stochastic at the floor
+            & ((rsi_3_4h < 30) | (rsi_3_1d < 45) | (stochrsi_k_1d > 50))
+            # 4h momentum alive, at the floor of its range and daily no new high
+            & ((rsi_3_4h < 25) | (willr_14_4h > -95) | (aroonu_14_1d > 10))
+            # 4h momentum collapsing, daily a recent low and money leaving
+            & ((cmf_20_4h > -0.15) | (rsi_3_change_pct_4h > -75) | (aroond_14_1d < 95))
+            # 4h a new high, momentum rising and daily a recent low
+            & ((aroonu_14_4h < 80) | (rsi_14_change_pct_4h < 5) | (aroond_14_1d < 30))
+            # 4h down, stochastic high and daily a new high
+            & ((change_pct_4h > -6) | (stochrsi_k_4h < 60) | (aroonu_14_1d < 45))
+            # 4h stochastic at the floor, daily money drained and high in its range
+            & ((stochrsi_k_4h > 10) | (mfi_14_1d > 30) | (willr_14_1d < -65))
+            # 4h a trend established, money drained and daily a new high
+            & ((adx_14_4h < 45) | (mfi_14_4h > 15) | (aroonu_14_1d < 25))
+            # 4h money flowing in, at an extreme low and daily falling
+            & ((cci_20_4h > -230) | (mfi_14_4h < 45) | (roc_2_1d > -1.5))
+            # daily no recent low, falling and 4h money flowing in
+            & ((cmf_20_4h < 0) | (aroond_14_1d > 5) | (roc_9_1d > -19))
+            # 4h oscillator high, falling and a trend established
+            & ((adx_14_4h < 40) | (roc_2_4h > -6) | (uo_7_14_28_4h < 50))
+            # daily money flowing in, momentum snapping up and 4h at an extreme low
+            & ((cci_20_4h > -100) | (mfi_14_1d < 55) | (rsi_3_change_pct_1d < 145))
+            # 4h at an extreme low, daily money drained and stochastic at the floor
+            & ((cci_20_4h > -195) | (mfi_14_1d > 25) | (stochrsi_k_1d > 5))
+            # 4h a new high, a long upper wick and a recent low
+            & ((aroond_14_4h < 60) | (aroonu_14_4h < 80) | (top_wick_pct_4h < 2.5))
+            # 4h no trend established, daily oversold and a new high
+            & ((adx_14_4h > 15) | (aroonu_14_4h < 30) | (rsi_14_1d > 40))
+            # daily momentum alive, money drained and 4h at the floor of its range
+            & ((willr_14_4h > -90) | (mfi_14_1d > 30) | (rsi_3_1d < 35))
+            # daily stochastic high, money leaving and 4h no trend established
+            & ((adx_14_4h > 15) | (cmf_20_1d > -0.2) | (stochk_14_3_3_1d < 35))
+            # 4h no trend established, daily oversold and falling
+            & ((adx_14_4h > 25) | (roc_2_4h > -4) | (rsi_14_1d > 35))
+            # daily stochastic at the floor, stochastic high and 4h down
+            & ((change_pct_4h > -1) | (stochk_14_3_3_1d > 20) | (stochrsi_k_1d < 60))
+            # 4h a long upper wick, daily a long upper wick and momentum alive
+            & ((top_wick_pct_4h < 2) | (rsi_3_1d < 45) | (top_wick_pct_1d < 4.5))
+            # daily stochastic high, money drained and momentum alive
+            & ((mfi_14_1d > 35) | (rsi_3_1d < 40) | (stochrsi_k_1d < 80))
+            # daily stochastic high, money drained and momentum alive
+            & ((mfi_14_1d > 40) | (rsi_3_1d < 40) | (stochrsi_k_1d < 80))
+            # daily money flowing in, at the floor of its range and a new high
+            & ((aroonu_14_1d < 75) | (mfi_14_1d < 55) | (willr_14_1d > -90))
+            # daily no new high, no recent low and a long lower wick
+            & ((aroond_14_1d > 5) | (aroonu_14_1d > 5) | (bot_wick_pct_1d < 3))
+          )
+
+          short_entry_logic.append(
             # 5m momentum rising, high in its range and 4h money drained
             ((rsi_14_change_pct < -2.0) | (willr_14 < -75) | (mfi_14_4h > 20))
             # 5m momentum alive, a volume spike and 4h a trend established
@@ -22090,6 +22385,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_35) | (aroonu_14_1h_gt_0) | (stochrsi_k_4h_lt_60))
             # 15m & 4h down move, 1h downtrend not confirmed, 4h downtrend not confirmed
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (rsi_14_1h_lt_40) | (aroonu_14_4h_lt_50))
+            # 15m & 4h down move, 1h low, 4h low
+            & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (aroonu_14_1h_gt_0) | (stochrsi_k_4h_gt_10))
             # 15m & 4h & 1d down move, 1h & 1d low
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_25) | (rsi_3_1d_gt_25) | (aroonu_14_1h_gt_0) | (aroonu_14_1d_gt_30))
             # 15m & 4h & 1d down move, 4h & 1d low
@@ -22168,6 +22465,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_25) | (rsi_3_4h_gt_35) | (rsi_3_1d_gt_35) | (aroonu_14_1h_gt_20) | (aroonu_14_4h_gt_0))
             # 15m & 4h & 1d down move, 1h & 4h low
             & ((rsi_3_15m_gt_25) | (rsi_3_4h_gt_35) | (rsi_3_1d_gt_45) | (stochrsi_k_1h_gt_20) | (stochrsi_k_4h_gt_20))
+            # 15m & 4h & 1d down move, 1h & 4h low
+            & ((rsi_3_15m_gt_25) | (rsi_3_4h_gt_40) | (rsi_3_1d_gt_40) | (aroonu_14_1h_gt_10) | (aroonu_14_4h_gt_10))
             # 15m & 1d down move, 15m & 1h low
             & ((rsi_3_15m_gt_25) | (rsi_3_1d_gt_25) | (aroonu_14_15m_gt_20) | (aroonu_14_1h_gt_20))
             # 15m down move, 1h low, 4h low, 15m low
@@ -22238,6 +22537,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_15) | (rsi_3_4h_gt_20) | (stochrsi_k_1h_gt_10) | (stochrsi_k_4h_gt_20))
             # 1h & 4h & 1d down move, 1h & 1d low
             & ((rsi_3_1h_gt_15) | (rsi_3_4h_gt_25) | (rsi_3_1d_gt_30) | (stochrsi_k_1h_gt_10) | (stochrsi_k_1d_gt_10))
+            # 1h & 4h down move, 15m low, 1h low
+            & ((rsi_3_1h_gt_15) | (rsi_3_4h_gt_25) | (aroonu_14_15m_gt_10) | (stochrsi_k_1h_gt_10))
             # 1h & 4h & 1d down move, 15m & 4h low
             & ((rsi_3_1h_gt_15) | (rsi_3_4h_gt_30) | (rsi_3_1d_gt_40) | (aroonu_14_15m_gt_10) | (aroonu_14_4h_gt_20))
             # 1h & 4h & 1d down move, 1d low, 1d oversold
@@ -23013,6 +23314,124 @@ class NostalgiaForInfinityX8(IStrategy):
         if short_entry_condition_index == 665:
           short_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
           short_entry_logic.append(protections_short_global == True)
+
+          short_entry_logic.append(
+            # daily money flowing in and 4h not oversold
+            ((cmf_20_1d > 0.05) | rsi_14_4h_lt_40)
+            # 5m money flowing in and 1h money flowing in
+            # 15m volume flow rising, 4h not extended and 5m stochastic high
+            & ((stochrsi_k < 50) | (obv_change_pct_15m < 7) | (cci_20_4h < 105))
+            # 5m stochastic high, 1h rising and daily momentum not falling sharply
+            & ((stoch_4_4 < 45) | (change_pct_1h < 0.5) | (rsi_3_change_pct_1d < -25))
+            # 1h the two-day window off its floor, 5m stochastic high and daily stochastic high
+            & ((stoch_9_3 < 30) | (willr_84_1h < -20) | (stochrsi_k_1d < 85))
+            # the last 24h fell hard and the 4h cycle is turning up
+            & ((roc_288 > -11.0) | (cci_20_change_pct_4h < -10.0))
+            # money leaving on 5m and on 1h
+            & ((mfi_14 < 30) | (mfi_14_1h < 40))
+            # 15m high in its range, 5m money drained and daily a recent low
+            & ((mfi_14 > 10) | (willr_14_15m < -65) | (aroond_14_1d < 10))
+            # 15m falling, 5m money flowing in and 1h a recent low
+            & ((mfi_14 < 50) | (roc_9_15m > -6) | (aroond_14_1h < 95))
+            # 4h oscillator low, 5m money leaving and a recent low
+            & ((cmf_20 > -0.4) | (aroond_14_4h < 90) | (uo_7_14_28_4h > 35))
+            # 5m money leaving sharply, 1h money not drained and 4h oscillator low
+            & ((cmf_20 > -0.4) | (mfi_14_1h < 30) | (uo_7_14_28_4h > 35))
+            # daily momentum snapping up, 5m volume flow falling and 4h oversold
+            & ((obv_change_pct > -0.5) | (rsi_14_4h > 35) | (rsi_3_change_pct_1d < 190))
+            # below-average volume and 1h momentum alive
+            & ((vol_rel > 1.25) | (rsi_3_1h < 20))
+            # daily a long upper wick, 5m a volume spike and no recent low
+            & ((vol_rel < 4.5) | (aroond_14_1d > 5) | (top_wick_pct_1d < 8))
+            # 15m oscillator low, 5m a new high and 1h money drained
+            & ((aroonu_14 < 45) | (uo_7_14_28_15m > 30) | (mfi_14_1h > 40))
+            # 15m money flowing in, 5m a new high and 1h money drained
+            & ((aroonu_14 < 65) | (mfi_14_15m < 55) | (mfi_14_1h > 30))
+            # 5m money flowing in, a new high and daily stochastic at the floor
+            & ((aroonu_14 < 65) | (cmf_20 < 0.1) | (stochrsi_k_1d > 50))
+            # 5m no recent low, daily oversold and 15m stochastic at the floor
+            & ((aroond_14 > 40) | (rsi_14_1d > 35) | stochrsi_k_15m_gt_40)
+            # 5m oversold, no recent low and 4h a trend established
+            & ((aroond_14 > 85) | (rsi_4 > 10) | (adx_14_4h < 25))
+            # 1h momentum rising, 5m fast stochastic high and high in its base
+            & ((ph_base_pos < 1.5) | (stoch_4_4 < 50) | (rsi_14_change_pct_1h < 5))
+            # 4h at an extreme low, 5m a tight pre-break coil and a new high
+            & ((ph_pre_tight < 6) | (aroonu_14_4h < 15) | (cci_20_4h > -225))
+            # pre-break range wide, 15m volume flow rising and 1h momentum exhausted
+            & ((ph_pre_tight < 5) | (obv_change_pct_15m < 8) | (rsi_3_1h > 10))
+            # 5m not oversold, the coil's roof low and 1h stochastic at the floor
+            & ((quad_s93_max_12 > 30) | (rsi_4 < 25) | (stochrsi_k_1h > 20))
+            # 5m not oversold, the coil's roof low and 4h a recent low
+            & ((quad_s93_max_12 > 30) | (rsi_4 < 30) | (aroond_14_4h < 55))
+            # 15m momentum falling, daily momentum snapping up and 1h a recent low
+            & ((rsi_14_change_pct_15m > -25) | (aroond_14_1h < 55) | (rsi_3_change_pct_1d < 190))
+            # 15m stochastic high, 4h high in its range and no recent low
+            & ((stochrsi_k_15m < 75) | (aroond_14_4h > 5) | (willr_14_4h < -50))
+            # 15m stochastic high, oscillator falling and daily not oversold
+            & ((stochrsi_k_15m < 75) | (uo_7_14_28_change_pct_15m > -15) | (rsi_14_1d < 45))
+            # 15m at the floor of its range, stochastic high and daily money flowing in
+            & ((stochrsi_k_15m < 55) | (willr_14_15m > -95) | (mfi_14_1d < 70))
+            # 15m at an extreme low, 1h not extended and daily no recent low
+            & ((cci_20_15m > -275) | (cci_20_1h < 20) | (aroond_14_1d > 30))
+            # 15m money flowing in, 4h downtrend weak and oscillator lifting
+            & (cmf_20_15m_lt_0_10 | (minus_di_14_4h > 25) | (uo_7_14_28_change_pct_15m < 5))
+            # 15m money leaving, a new high and 1h no recent low
+            & ((aroonu_14_15m < 65) | (cmf_20_15m > -0.3) | (aroond_14_1h > 30))
+            # 15m oversold, a new high and daily a recent low
+            & ((aroonu_14_15m < 65) | (rsi_14_15m > 20) | (aroond_14_1d < 10))
+            # 4h no trend established, not falling and 15m a new high
+            & ((aroonu_14_15m < 25) | (adx_14_4h > 20) | (roc_9_4h < 6))
+            # 1h high in its range, stochastic at the floor and daily a recent low
+            & ((stochrsi_k_1h > 20) | (willr_14_1h < -45) | (aroond_14_1d < 45))
+            # 1h stochastic at the floor, 4h momentum snapping up and daily not falling
+            & ((stochrsi_k_1h > 20) | (rsi_3_change_pct_4h < 115) | (roc_9_1d < -10))
+            # 1h at an extreme low and daily a long lower wick
+            & ((cci_20_1h > -175.0) | (bot_wick_pct_1d < 3))
+            # 1h not extended, 4h momentum dead and daily not falling
+            & ((cci_20_1h < -5) | rsi_3_4h_gt_30 | (roc_2_1d < -2.0))
+            # 1h cycle low but high in its two-day range, with a 4h trend established
+            & ((cci_20_1h > -175) | (willr_84_1h < -20) | (adx_14_4h < 20))
+            # 1h money drained, cycle falling and daily no new high
+            & ((cci_20_change_pct_1h > -240) | (mfi_14_1h > 30) | (aroonu_14_1d > 40))
+            # 1h cycle collapsing and money drained, with a 4h trend established
+            & ((cci_20_change_pct_1h > -240) | (mfi_14_1h > 25) | (adx_14_4h < 20))
+            # 1h money drained, stochastic high and daily no new high
+            & ((mfi_14_1h > 25) | (stochrsi_k_1h < 80) | (aroonu_14_1d > 5))
+            # 1h a new high, at an extreme low and daily a new high
+            & ((aroonu_14_1h < 80) | (cci_20_1h > -300) | (aroonu_14_1d < 5))
+            # 1h a recent low, falling and stochastic high
+            & ((aroond_14_1h < 80) | (roc_9_1h > -7) | stochrsi_k_1h_lt_30)
+            # 1h no recent low, 4h money drained and daily no recent low
+            & ((aroond_14_1h > 20) | (mfi_14_4h > 25) | (aroond_14_1d > 5))
+            # the two-day window off its floor and tightly squeezed
+            & ((willr_84_1h < -75) | (sqz_cnt_24 < 10))
+            # 4h momentum alive and stochastic turning up
+            & ((rsi_3_4h < 65) | (stochrsi_k_change_pct_4h < 5))
+            # 4h momentum falling and daily no upper wick
+            & ((rsi_14_change_pct_4h > -15.0) | (top_wick_pct_1d > 1.5))
+            # 4h momentum rising, a long upper wick and daily money leaving
+            & ((rsi_14_change_pct_4h < 10) | (top_wick_pct_4h < 2.5) | (cmf_20_1d > 0.05))
+            # 4h falling, daily momentum alive and a recent low
+            & ((roc_9_4h > -10) | (aroond_14_1d < 10) | (rsi_3_1d < 85))
+            # 4h money flowing in and high in its range
+            & ((mfi_14_4h < 55) | (willr_14_4h > -40))
+            # 4h money leaving and 1h at the floor of its range
+            & ((cmf_20_4h > -0.05) | (willr_14_1h < -75))
+            # 4h oscillator low, daily stochastic high and money flowing in
+            & ((cmf_20_4h < -0.05) | (uo_7_14_28_4h > 35) | (stochrsi_k_1d < 90))
+            # 4h money flowing in, at the floor of its range and daily no recent low
+            & ((cmf_20_4h < 0.2) | (willr_14_4h > -80) | (aroond_14_1d > 20))
+            # 4h a trend established, money flowing in and 5m falling
+            & ((adx_14_4h < 40) | cmf_20_4h_lt_0_15 | (roc_9 > -2))
+            # 4h no trend established and stochastic falling hard
+            & ((adx_14_4h > 20) | (stochrsi_k_change_pct_4h > -70.0))
+            # 4h stochastic at the floor, daily momentum alive and a trend established
+            & ((adx_14_4h < 20) | (stochk_14_3_3_4h > 25) | (rsi_3_1d < 90))
+            # 4h oscillator low, daily stochastic high and no new high
+            & ((aroonu_14_4h > 10) | (uo_7_14_28_4h > 35) | (stochrsi_k_1d < 70))
+            # 4h no recent low and money flowing in
+            & ((aroond_14_4h > 5) | (cmf_20_4h < 0.05))
+          )
           # breakdown must be real: price already in the lower half of the range,
           # 15m momentum actually down (losses were top-of-range fake breakdowns)
           short_entry_logic.append(willr_14 < -50.0)
