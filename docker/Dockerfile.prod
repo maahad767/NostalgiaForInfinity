@@ -10,5 +10,9 @@ USER root
 # honor relative bind-mounts) has them at runtime without volumes.
 COPY --chown=1000:1000 configs /freqtrade/configs
 COPY --chown=1000:1000 NostalgiaForInfinityX7.py /freqtrade/NostalgiaForInfinityX7.py
+# Local overlay (see NFIX7Local.py). Selected via FREQTRADE__STRATEGY; the
+# container name and --strategy come from that env var, so this file MUST be in
+# the image or freqtrade crash-loops on an unresolvable strategy.
+COPY --chown=1000:1000 NFIX7Local.py /freqtrade/NFIX7Local.py
 
 USER ftuser
