@@ -14,5 +14,8 @@ COPY --chown=1000:1000 NostalgiaForInfinityX7.py /freqtrade/NostalgiaForInfinity
 # container name and --strategy come from that env var, so this file MUST be in
 # the image or freqtrade crash-loops on an unresolvable strategy.
 COPY --chown=1000:1000 NFIX7Local.py /freqtrade/NFIX7Local.py
+# X8 (stock) is the live strategy from 2026-09-24; X7 + NFIX7Local stay in the image so
+# a rollback is just FREQTRADE__STRATEGY in .env + a rebuild.
+COPY --chown=1000:1000 NostalgiaForInfinityX8.py /freqtrade/NostalgiaForInfinityX8.py
 
 USER ftuser
