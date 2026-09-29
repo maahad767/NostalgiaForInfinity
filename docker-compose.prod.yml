@@ -1,0 +1,46 @@
+# Production compose for this fork (live NFI on the VPS). Kept apart from upstream's
+# docker-compose.yml so upstream can change that file without merge conflicts.
+# /root/nfi-autoupdate.sh, nfi-switch.sh and halal-deploy-now.sh use this file when present.
+services:
+  freqtrade:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.prod
+    container_name: ${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX8}
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}"
+    volumes:
+      # Configs and strategy are baked into the image (see docker/Dockerfile.custom)
+      # because Coolify doesn't honor relative bind-mounts at runtime.
+      - "freqtrade_userdata:/freqtrade/user_data"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${FREQTRADE__API_SERVER__LISTEN_PORT:-8080}",
+        ]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Configs loaded explicitly so the named volume can start empty.
+    command: >
+      trade
+      -c configs/exampleconfig.json
+      -c configs/exampleconfig_secret.json
+      -c configs/trading_mode-${FREQTRADE__TRADING_MODE:-spot}.json
+      -c configs/pairlist-volume-${FREQTRADE__EXCHANGE__NAME:-binance}-usdt.json
+      -c configs/blacklist-${FREQTRADE__EXCHANGE__NAME:-binance}.json
+      --strategy ${FREQTRADE__STRATEGY:-NostalgiaForInfinityX8}
+      --strategy-path .
+      --db-url sqlite:////freqtrade/user_data/${FREQTRADE__BOT_NAME:-prod}_${FREQTRADE__EXCHANGE__NAME:-binance}_${FREQTRADE__TRADING_MODE:-spot}-tradesv3.sqlite
+      --log-file user_data/logs/${FREQTRADE__BOT_NAME:-prod}-${FREQTRADE__EXCHANGE__NAME:-binance}-${FREQTRADE__STRATEGY:-NostalgiaForInfinityX8}-${FREQTRADE__TRADING_MODE:-spot}.log
+      -v
+
+volumes:
+  freqtrade_userdata:
