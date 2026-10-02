@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.117"
+    return "v18.0.118"
 
   stoploss = -0.99
 
@@ -19634,6 +19634,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_45) | (aroonu_14_1h_lt_50) | (aroonu_14_1d_lt_90))
             # 1h down move, 1h high
             & ((rsi_3_1h_gt_45) | (stochrsi_k_1h_lt_60))
+            # 1h & 4h down move, 4h still high, 1d high & overbought
+            & ((rsi_3_1h_gt_50) | (rsi_3_4h_gt_55) | (aroonu_14_4h_lt_50) | (aroonu_14_1d_lt_60) | (roc_9_1d_lt_50))
             # 1h & 4h down move, 15m high
             & ((rsi_3_1h_gt_50) | (rsi_3_4h_gt_60) | (aroonu_14_15m_lt_70))
             # 1h down move, 15m still high, 4h high
@@ -24307,6 +24309,28 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((top_wick_pct_4h > 0.5) | (mfi_14_1d < 60.0) | (rsi_3_1d_gt_20) | (aroonu_14_15m_gt_50))
           )
 
+          # Low coil floor with deeply oversold daily RSI
+          short_entry_logic.append((quad_s93_min_12 > 10) | rsi_3_1d_gt_10)
+          # Stalled 15m highs with 4h highs present and exhausted 4h StochRSI
+          short_entry_logic.append(aroonu_14_15m_gt_10 | (aroonu_14_4h < 15) | (stochrsi_k_4h > 5))
+          # Deep 1h ROC decline with 4h highs still present
+          short_entry_logic.append(roc_9_1h_gt_neg_10 | (aroonu_14_4h < 15))
+          # Oversold 4h RSI while daily StochRSI remains elevated
+          short_entry_logic.append((rsi_14_4h > 25) | stochrsi_k_1d_lt_50)
+          # Low coil floor during a deep daily ROC decline
+          short_entry_logic.append((quad_s93_min_12 > 10) | (roc_9_1d > -22))
+          # 15m and 1h RSI rebound over exhausted 4h StochRSI
+          short_entry_logic.append((rsi_3_15m < 45) | rsi_3_1h_lt_55 | (stochrsi_k_4h > 5))
+          # Fast RSI percentage surge with weak 4h money flow
+          short_entry_logic.append((rsi_14_change_pct < 40) | (mfi_14_4h > 30))
+          # Weak 15m Williams position during a deep daily ROC decline
+          short_entry_logic.append((willr_14_15m > -35) | roc_9_1d_gt_neg_25)
+          # Recent 5m and 4h highs with elevated 15m StochRSI after a 4h ROC decline
+          short_entry_logic.append((aroonu_14 < 60) | (stochrsi_k_15m < 85) | aroonu_14_4h_lt_60 | (roc_9_4h > -5))
+          # Recent highs across timeframes with oscillators above their low bands
+          short_entry_logic.append(
+            (aroonu_14 < 5) | (rsi_3_15m < 25) | (aroonu_14_4h < 55) | (stochrsi_k_4h < 25) | (aroonu_14_1d < 45)
+          )
           # Logic
           short_entry_logic.append(
             # 4h trend birth: ADX crossing up through 20 on the latest 4h candle
@@ -24987,6 +25011,30 @@ class NostalgiaForInfinityX8(IStrategy):
             )
           )
 
+          # 15m highs still present with a 1h RSI rebound
+          short_entry_logic.append((aroonu_14_15m < 10) | (rsi_3_1h < 20))
+          # Weak 15m and daily highs despite a 15m RSI rebound
+          short_entry_logic.append((rsi_3_15m < 10) | aroonu_14_15m_gt_20 | (aroonu_14_1d > 40))
+          # Recent 1h highs with low 4h StochRSI and weak daily highs
+          short_entry_logic.append(aroonu_14_1h_lt_40 | stochrsi_k_4h_gt_40 | aroonu_14_1d_gt_20)
+          # Shorter-term highs absent while daily highs remain
+          short_entry_logic.append((aroonu_14_1h > 5) | (aroonu_14_4h > 5) | aroonu_14_1d_lt_50)
+          # Fast Williams rebound with recovering 1h StochRSI
+          short_entry_logic.append((willr_14 < -70) | (stochrsi_k_1h < 25))
+          # Deep 24h decline with recent 1h highs
+          short_entry_logic.append((roc_288 > -10) | (aroonu_14_1h < 65))
+          # No recent 1h highs despite nonnegative 4h ROC
+          short_entry_logic.append((aroonu_14_1h > 5) | (roc_9_4h < 0))
+          # Fading 1h lows with daily RSI above its low band
+          short_entry_logic.append((aroond_14_1h > 35) | (rsi_3_1d < 25))
+          # Fading 4h lows while daily RSI remains deeply oversold
+          short_entry_logic.append((aroond_14_4h > 50) | rsi_3_1d_gt_10)
+          # Recent 15m and 1h highs over exhausted daily StochRSI
+          short_entry_logic.append(aroonu_14_15m_lt_25 | aroonu_14_1h_lt_25 | stochrsi_k_1d_gt_10)
+          # Recent 5m and daily highs while 1h highs are absent
+          short_entry_logic.append(aroonu_14_lt_30 | (aroonu_14_1h > 5) | (aroonu_14_1d < 55))
+          # 1h RSI rebound against weak daily highs and low StochRSI
+          short_entry_logic.append((rsi_3_1h < 20) | (aroonu_14_1d > 40) | (stochrsi_k_1d > 15))
           # Logic
           short_entry_logic.append(
             # first close below the prior 7-day low
