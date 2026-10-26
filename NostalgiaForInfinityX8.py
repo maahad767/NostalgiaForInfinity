@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.159"
+    return "v18.0.160"
 
   stoploss = -0.99
 
@@ -10747,9 +10747,14 @@ class NostalgiaForInfinityX8(IStrategy):
             # direction: bulls own it
             & (plus_di_14_4h > minus_di_14_4h)
             & (close > ema_200)
+            # 5m washed out
+            & (stoch_60_10 > 40.0)
             # the 4h regime has to agree: a bounce inside a collapse puts price over the 5m
             # EMA200 for minutes, which is where every loss in the crash window came from
             & (ema_12_4h > ema_200_4h)
+            # 1d washed out
+            & (rsi_14_1d_gt_50)
+            & (stochk_14_3_3_1d > 40.0)
           )
 
         # Condition #8 - Donchian 7-day breakout (Long, experimental — turtle-style; big-win lane).
@@ -14547,9 +14552,9 @@ class NostalgiaForInfinityX8(IStrategy):
           # Logic
           long_entry_logic.append(
             # the 1d is rising and not floored — a 15m pullback inside a falling daily is a knife
-            (roc_9_1d > 0.0)
-            & (stochrsi_k_1d > 50.0)
-            & (rsi_14_1d > 50.0)
+            (roc_9_1d_gt_0)
+            & (stochrsi_k_1d_gt_50)
+            & (rsi_14_1d_gt_50)
             # 15m in an uptrend, price back at the 50 EMA but still above the 200
             & (ema_50_15m > ema_200_15m)
             & (close <= (ema_50_15m * 1.002))
@@ -14557,6 +14562,10 @@ class NostalgiaForInfinityX8(IStrategy):
             # a market-order bubble, and the buyers are the ones making it
             & (volume > large_bubble_thr)
             & (cvd_buy_vol > cvd_sell_vol)
+            # 5m not high
+            & (rsi_14 < 60.0)
+            # 5m not extended
+            & (change_pct < 0.35)
           )
 
         # Condition #61 - Rebuy mode (Long).
@@ -29730,6 +29739,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_4h_gt_25) | (rsi_3_1d_gt_40) | (aroonu_14_15m_gt_20) | (aroonu_14_4h_gt_20))
             # 4h & 1d down move, 1h & 4h & 1d low
             & ((rsi_3_4h_gt_30) | (rsi_3_1d_gt_30) | (aroonu_14_1h_gt_0) | (aroonu_14_4h_gt_20) | (aroonu_14_1d_gt_20))
+            # 4h & 1d down move, 15m & 1d low
+            & ((rsi_3_4h_gt_30) | (rsi_3_1d_gt_30) | (aroonu_14_15m_gt_10) | (aroonu_14_1d_gt_10))
             # 4h & 1d down move, 4h low
             & ((rsi_3_4h_gt_30) | (rsi_3_1d_gt_30) | (aroonu_14_4h_gt_0))
             # 4h & 1d down move, 4h & 1d low
@@ -31030,6 +31041,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((stochrsi_k_1h_lt_80) | (roc_9_4h_gt_neg_10) | (stochrsi_k_1d_lt_60))
             # the hour off its low, the daily money flow gone and the hour not falling
             & ((willr_14_1h > -80.0) | (mfi_14_1d > 45.0) | (roc_9_1h < -1.0))
+            # 15m at the floor, 1h money flowing out, 15m not oversold
+            & ((mfi_14_1h > 35.0) | (willr_14_15m > -75.0) | (rsi_14_15m < 45.0))
             # 4h & 1d down move, 1d uptrend
             & ((rsi_3_4h_gt_10) | (rsi_3_1d_gt_20) | (roc_9_1d_lt_0))
             # 4h down move, 4h uptrend gone, 1d uptrend
@@ -31055,7 +31068,7 @@ class NostalgiaForInfinityX8(IStrategy):
             # 4h up move & still high, 1d low
             & ((rsi_3_4h_lt_60) | (stochrsi_k_4h_gt_50) | (stochrsi_k_1d_gt_20))
             # the 4h making no new high with its downtrend maxed out and the daily oscillator high
-            & ((aroonu_14_4h > 5.0) | (aroond_14_4h < 90.0) | (stochrsi_k_1d < 60.0))
+            & ((aroonu_14_4h > 5.0) | (aroond_14_4h < 90.0) | (stochrsi_k_1d_lt_60))
             # the 4h fully exhausted: no new high, stochastic on the floor, money flow gone
             & ((aroonu_14_4h > 5.0) | (stochrsi_k_4h > 5.0) | (mfi_14_4h > 30.0))
             # 4h & 1d low, 1d uptrend
@@ -31075,7 +31088,7 @@ class NostalgiaForInfinityX8(IStrategy):
             # 4h high, 1d uptrend
             & ((aroonu_14_4h_lt_80) | (roc_9_1d_lt_10))
             # 4h not bouncing, or 1d not recovered
-            & ((stochrsi_k_4h < 50.0) | (rsi_14_1d < 50.0))
+            & ((stochrsi_k_4h_lt_50) | (rsi_14_1d_lt_50))
             # 4h low, 1d uptrend gone, 1d uptrend
             & ((stochrsi_k_4h_gt_10) | (aroonu_14_1d_gt_10) | (roc_9_1d_lt_10))
             # 4h high, 1d down move & uptrend
@@ -31084,6 +31097,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((stochrsi_k_4h_gt_20) | (aroonu_14_1d_lt_40) | (stochrsi_k_1d_gt_40))
             # 4h low, 1d down move & uptrend
             & ((stochrsi_k_4h_gt_20) | (rsi_3_1d_gt_40) | (aroonu_14_1d_lt_40))
+            # 4h momentum low, 1d without a recent high, 15m without a fresh low
+            & ((stochrsi_k_4h_lt_50) | (aroonu_14_1d > 15.0) | (aroond_14_15m > 0.0))
             # 1d down move & uptrend
             & ((rsi_3_1d_gt_20) | (aroonu_14_1d_lt_80))
             # 1d up move & low
@@ -31093,13 +31108,15 @@ class NostalgiaForInfinityX8(IStrategy):
             # no daily downtrend, the daily oscillator at its ceiling and the 4h one on the floor
             & ((aroond_14_1d > 5.0) | (stochrsi_k_1d < 85.0) | (stochrsi_k_4h > 5.0))
             # the daily oscillator up at its ceiling while 4h money is already leaving
-            & ((stochrsi_k_1d < 60.0) | (cmf_20_4h > -0.1) | (mfi_14_1h < 65.0))
+            & ((stochrsi_k_1d_lt_60) | (cmf_20_4h_gt_neg_0_10) | (mfi_14_1h < 65.0))
             # 1d still high, 1d downtrend
             & ((stochrsi_k_1d_lt_70) | (roc_9_1d_gt_neg_20))
             # 4h money still flowing in, 1d not collapsed, 4h stochastic at the floor
             & ((cmf_20_4h_lt_0_15) | (roc_9_1d_gt_neg_10) | (stochrsi_k_4h_gt_20))
             # 1d strong down move, or 4h not bouncing
-            & ((roc_9_1d < -10.0) | (rsi_3_4h < 50.0))
+            & ((roc_9_1d < -10.0) | (rsi_3_4h_lt_50))
+            # 1d down move, 1d not high, 1d not overbought
+            & ((roc_9_1d_gt_neg_30) | (rsi_14_1d_gt_60) | (stochrsi_k_1d_gt_70))
           )
 
           # Logic
