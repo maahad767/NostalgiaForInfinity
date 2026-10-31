@@ -5488,7 +5488,11 @@ class NostalgiaForInfinityX8(IStrategy):
       return False
 
     open_trades = Trade.get_trades_proxy(is_open=True)
-    num_open_grind_mode = sum(1 for t in open_trades if all(c in long_grind_mode_tags for c in t.enter_tag.split()))
+    num_open_grind_mode = sum(
+      1
+      for t in open_trades
+      if t.enter_tag and t.enter_tag.strip() and all(c in long_grind_mode_tags for c in t.enter_tag.split())
+    )
     if num_open_grind_mode >= grind_mode_max_slots:
       log.info(f"[{current_time}] Cancelling entry for {pair} due to grind mode slots limit reached.")
       return False
@@ -5642,12 +5646,12 @@ class NostalgiaForInfinityX8(IStrategy):
 
   # Correct Min Stake
   # ---------------------------------------------------------------------------------------------
-  def correct_min_stake(self, min_stake: Optional[float], trade_leverage: Optional[float] = None) -> Optional[float]:
+  def correct_min_stake(self, min_stake: Optional[float], trade_leverage: Optional[float] = None) -> float:
     if self.is_futures_mode and self.config["exchange"]["name"] in ("binance", "bybit", "krakenfutures"):
       min_futures_stake = 5.0 / (trade_leverage if trade_leverage is not None else self.futures_mode_leverage)
       if (min_stake is None) or (min_stake < min_futures_stake):
         min_stake = min_futures_stake
-    return min_stake
+    return min_stake if min_stake is not None else 0.0
 
   def is_backtest_mode(self) -> bool:
     """Check if the current run mode is backtest or hyperopt"""
