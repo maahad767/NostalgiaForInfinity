@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.183"
+    return "v18.0.184"
 
   stoploss = -0.99
 
@@ -5531,7 +5531,6 @@ class NostalgiaForInfinityX8(IStrategy):
     trade_stake_amount = trade.stake_amount
     trade_is_short = trade.is_short
     trade_liquidation_price = trade.liquidation_price
-    trade_open_rate = trade.open_rate
 
     is_backtest = self.is_backtest_mode()
     # Allow force exits
@@ -5551,9 +5550,7 @@ class NostalgiaForInfinityX8(IStrategy):
       if self.exit_profit_only:
         profit = 0.0
         if trade_realized_profit != 0.0:
-          profit = ((rate - trade_open_rate) / trade_open_rate) * trade_stake_amount * (1 - trade.fee_close)
-          profit = profit + trade_realized_profit
-          profit = profit / trade_stake_amount
+          profit = trade.calculate_profit(rate).total_profit / trade_stake_amount
         else:
           profit = trade.calc_profit_ratio(rate)
         if profit < self.exit_profit_offset:
@@ -7317,6 +7314,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_35) | (rsi_14_4h_lt_50))
             # 15m & 1h down move, 1h high
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_35) | (stochrsi_k_1h_lt_60))
+            # 15m & 1h down move, 1h high
+            & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_40) | (aroonu_14_1h_lt_70))
             # 15m & 1h down move, 4h high
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_40) | (stochrsi_k_4h_lt_80))
             # 15m & 1h & 1d down move, 1h high, 1d downtrend
@@ -7329,8 +7328,10 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_55) | (stochrsi_k_1h_lt_70))
             # 15m & 1h down move, 4h high
             & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_55) | (stochrsi_k_4h_lt_90))
-            # 15m & 1h down move, 1h high
-            & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_40) | (aroonu_14_1h_lt_70))
+            # 15m & 1h & 4h down move, 1h high
+            & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_60) | (rsi_3_4h_gt_60) | (aroonu_14_1h_lt_70))
+            # 15m & 1h & 4h down move, 4h high
+            & ((rsi_3_15m_gt_10) | (rsi_3_1h_gt_60) | (rsi_3_4h_gt_60) | (stochrsi_k_4h_lt_70))
             # 15m & 4h & 1d down move, 1d still high
             & ((rsi_3_15m_gt_10) | (rsi_3_4h_gt_10) | (rsi_3_1d_gt_30) | (stochrsi_k_1d_lt_50))
             # 15m & 4h down move, 4h still not low enough
