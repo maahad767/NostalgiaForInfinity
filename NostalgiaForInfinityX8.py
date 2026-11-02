@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.191"
+    return "v18.0.193"
 
   stoploss = -0.99
 
@@ -1081,6 +1081,7 @@ class NostalgiaForInfinityX8(IStrategy):
     "long_entry_condition_144_enable": True,
     "long_entry_condition_145_enable": True,
     "long_entry_condition_146_enable": False,
+    "long_entry_condition_147_enable": False,
     "long_entry_condition_161_enable": True,
     "long_entry_condition_162_enable": True,
     "long_entry_condition_163_enable": True,
@@ -5918,6 +5919,7 @@ class NostalgiaForInfinityX8(IStrategy):
     stochrsi_k_15m = np_view("STOCHRSIk_14_14_3_3_15m")
     stochrsi_k_1d = np_view("STOCHRSIk_14_14_3_3_1d")
     rsi_3 = np_view("RSI_3")
+    bb_below_count = np_view("BB_BELOW_COUNT")
     close = np_view("close")
     high_px = np_view("high")
     low_px = np_view("low")
@@ -14191,6 +14193,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_50) | (rsi_3_1d_gt_50) | (aroonu_14_15m_lt_60) | (aroonu_14_1h_lt_100))
             # 1h down move, 1h & 4h high
             & ((rsi_3_1h_gt_50) | (aroonu_14_1h_lt_60) | (aroonu_14_4h_lt_100))
+            # 1h down move, 1h high, 1d overbought
+            & ((rsi_3_1h_gt_50) | (aroonu_14_1h_lt_70 | (roc_9_1d_gt_neg_20)))
             # 1h down move, 1h high, 4h high
             & ((rsi_3_1h_gt_50) | (aroonu_14_1h_lt_80) | (stochrsi_k_4h_lt_90))
             # 1h down move, 4h & 1d high, 4h overbought
@@ -20418,6 +20422,29 @@ class NostalgiaForInfinityX8(IStrategy):
             & (aroond_14_4h > 7.1429)
             # tape not cascading over four hours
             & (btc_roc_1_4h > -2.2)
+          )
+
+        # Condition #147 - Top Coins mode (Long), the 142 nucleus without its wall.
+        if long_entry_condition_index == 147:
+          # Protections
+          long_entry_logic.append(is_pair_long_top_coins_mode)
+          long_entry_logic.append(num_empty_288 <= allowed_empty_candles_288)
+          long_entry_logic.append(protections_long_global == True)
+
+          # Logic
+          long_entry_logic.append(
+            # 5m not fully sold off yet
+            (rsi_3_gt_5)
+            # 5m still weak
+            & (rsi_4 < 46.0)
+            # 5m momentum already turning up
+            & (rsi_20 < rsi_20_shift_1)
+            # price still below a stretched 5m mean
+            & (close < sma_16 * 0.960)
+            # 5m 4+ bars under the lower band, crowded
+            & (bb_below_count < 4)
+            # 1h far under the band
+            & (bbb_20_2_0_1h > 5.91)
           )
 
         # Condition #161 - Scalp mode (Long).
@@ -29465,6 +29492,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (aroonu_14_1d_gt_0) | (stochrsi_k_4h_gt_20))
             # 15m & 4h down move, 1h low, 1d oversold
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (stochrsi_k_1h_gt_20) | (roc_9_1d_gt_neg_10))
+            # 15m & 4h down move, 4h low
+            & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (stochrsi_k_4h_gt_10))
             # 15m & 4h & 1d down move, 1h & 1d low
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_25) | (rsi_3_1d_gt_25) | (aroonu_14_1h_gt_0) | (aroonu_14_1d_gt_30))
             # 15m & 4h & 1d down move, 4h & 1d low
@@ -38554,6 +38583,14 @@ class NostalgiaForInfinityX8(IStrategy):
 
     # Grinding 1
 
+    # Preserve gross-fill profit calculations; size spot exits from net inventory.
+    if not is_futures and any(order.safe_fee_base for order in filled_entries):
+      grind_1_total_amount = sum(order.safe_amount_after_fee for order in grind_1_orders)
+      grind_2_total_amount = sum(order.safe_amount_after_fee for order in grind_2_orders)
+      grind_3_total_amount = sum(order.safe_amount_after_fee for order in grind_3_orders)
+      grind_4_total_amount = sum(order.safe_amount_after_fee for order in grind_4_orders)
+      grind_5_total_amount = sum(order.safe_amount_after_fee for order in grind_5_orders)
+
     if (
       (self.grinding_v2_grind_1_enable)
       and (is_derisk_1_found or is_derisk_2_found or is_derisk_3_found)
@@ -40928,6 +40965,14 @@ class NostalgiaForInfinityX8(IStrategy):
         return -ft_sell_amount, "derisk_level_4"
 
     # Grinding 1
+
+    # Preserve gross-fill profit calculations; size spot exits from net inventory.
+    if not is_futures_mode and any(order.safe_fee_base for order in filled_entries):
+      grind_1_total_amount = sum(order.safe_amount_after_fee for order in grind_1_orders)
+      grind_2_total_amount = sum(order.safe_amount_after_fee for order in grind_2_orders)
+      grind_3_total_amount = sum(order.safe_amount_after_fee for order in grind_3_orders)
+      grind_4_total_amount = sum(order.safe_amount_after_fee for order in grind_4_orders)
+      grind_5_total_amount = sum(order.safe_amount_after_fee for order in grind_5_orders)
 
     if (
       (self.system_v3_grind_1_enable)
