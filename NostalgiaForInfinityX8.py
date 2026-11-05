@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.203"
+    return "v18.0.204"
 
   stoploss = -0.99
 
@@ -30957,6 +30957,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_1h_gt_30) | (rsi_3_4h_gt_30) | (rsi_3_1d_gt_50) | (aroonu_14_1h_gt_0) | (stochrsi_k_4h_gt_30))
             # 1h & 4h & 1d down move, 4h & 1d low
             & ((rsi_3_1h_gt_30) | (rsi_3_4h_gt_30) | (rsi_3_1d_gt_60) | (aroonu_14_4h_gt_0) | (aroonu_14_1d_gt_0))
+            # 1h & 4h down move, 1h low
+            & ((rsi_3_1h_gt_30) | (rsi_3_4h_gt_30) | (aroonu_14_1h_gt_20))
             # 1h & 4h & 1d down move, 4h & 1d low
             & ((rsi_3_1h_gt_30) | (rsi_3_4h_gt_45) | (rsi_3_1d_gt_45) | (aroonu_14_4h_gt_0) | (aroonu_14_1d_gt_0))
             # 1h & 1d down move, 1h & 1d low, 1d oversold
@@ -47129,7 +47131,7 @@ class NostalgiaForInfinityX8(IStrategy):
         first_entry_distance_ratio = (exit_rate - first_entry.safe_price) / first_entry.safe_price
         # First entry exit
         if first_entry_distance_ratio > (
-          (self.grind_mode_first_entry_profit_threshold_spot + fee_open_rate + fee_close_rate)
+          (self.grind_mode_first_entry_profit_threshold_futures + fee_open_rate + fee_close_rate)
           if is_futures
           else (self.grind_mode_first_entry_profit_threshold_spot + fee_open_rate + fee_close_rate)
         ):
@@ -47169,7 +47171,7 @@ class NostalgiaForInfinityX8(IStrategy):
         if derisk_use_grind_stops and (
           first_entry_distance_ratio
           < (
-            self.grind_mode_first_entry_stop_threshold_spot
+            self.grind_mode_first_entry_stop_threshold_futures
             if is_futures
             else self.grind_mode_first_entry_stop_threshold_spot
           )
@@ -47178,7 +47180,7 @@ class NostalgiaForInfinityX8(IStrategy):
           if ((current_stake_amount / trade_leverage) - sell_amount) < (min_stake * 1.55):
             sell_amount = (trade_amount * exit_rate / trade_leverage) - (min_stake * 1.55)
           ft_sell_amount = sell_amount * trade_leverage * (trade_stake_amount / trade_amount) / exit_rate
-          if sell_amount > min_stake and ft_sell_amount > min_stake:
+          if sell_amount > min_stake:
             grind_profit = (exit_rate - first_entry.safe_price) / first_entry.safe_price
             coin_amount = sell_amount / exit_rate
             send_msg(
@@ -61289,7 +61291,7 @@ class NostalgiaForInfinityX8(IStrategy):
         first_entry_distance_ratio = -(exit_rate - first_entry.safe_price) / first_entry.safe_price
         # First entry exit
         if first_entry_distance_ratio > (
-          (self.grind_mode_first_entry_profit_threshold_spot + fee_open_rate + fee_close_rate)
+          (self.grind_mode_first_entry_profit_threshold_futures + fee_open_rate + fee_close_rate)
           if is_futures
           else (self.grind_mode_first_entry_profit_threshold_spot + fee_open_rate + fee_close_rate)
         ):
@@ -61297,7 +61299,7 @@ class NostalgiaForInfinityX8(IStrategy):
           if ((current_stake_amount / trade_leverage) - sell_amount) < (min_stake * 1.55):
             sell_amount = (trade_amount * exit_rate / trade_leverage) - (min_stake * 1.55)
           ft_sell_amount = sell_amount * trade_leverage * (trade_stake_amount / trade_amount) / exit_rate
-          if sell_amount > min_stake and ft_sell_amount > min_stake:
+          if sell_amount > min_stake:
             grind_profit = -(exit_rate - first_entry.safe_price) / first_entry.safe_price
             coin_amount = sell_amount / exit_rate
             send_msg(
@@ -61329,7 +61331,7 @@ class NostalgiaForInfinityX8(IStrategy):
         if derisk_use_grind_stops and (
           first_entry_distance_ratio
           < (
-            self.grind_mode_first_entry_stop_threshold_spot
+            self.grind_mode_first_entry_stop_threshold_futures
             if is_futures
             else self.grind_mode_first_entry_stop_threshold_spot
           )
@@ -61338,7 +61340,7 @@ class NostalgiaForInfinityX8(IStrategy):
           if ((current_stake_amount / trade_leverage) - sell_amount) < (min_stake * 1.55):
             sell_amount = (trade_amount * exit_rate / trade_leverage) - (min_stake * 1.55)
           ft_sell_amount = sell_amount * trade_leverage * (trade_stake_amount / trade_amount) / exit_rate
-          if sell_amount > min_stake and ft_sell_amount > min_stake:
+          if sell_amount > min_stake:
             grind_profit = -(exit_rate - first_entry.safe_price) / first_entry.safe_price
             coin_amount = sell_amount / exit_rate
             send_msg(
