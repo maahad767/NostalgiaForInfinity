@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.319"
+    return "v18.0.322"
 
   stoploss = -0.99
 
@@ -11472,6 +11472,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_50) | (aroonu_14_4h_lt_80) | (roc_9_4h_lt_20))
             # 15m & 1h down move, 4h high & overbought
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_50) | (stochrsi_k_4h_lt_80) | (roc_9_4h_lt_20))
+            # 15m & 1d down move, 4h high
+            & ((rsi_3_15m_gt_20) | (rsi_3_1d_gt_30) | (aroonu_14_4h_lt_70))
             # 15m down move, 1h & 4h high
             & ((rsi_3_15m_gt_20) | (aroonu_14_1h_lt_60) | (aroonu_14_4h_lt_100))
             # 15m down move, 4h high, 1h overbought
@@ -26994,6 +26996,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_35) | (rsi_3_1h_gt_45) | (rsi_3_1d_gt_45) | (aroonu_14_15m_lt_30) | (stochrsi_k_1h_lt_80))
             # 15m & 1h & 1d down move, 1h & 4h high
             & ((rsi_3_15m_gt_35) | (rsi_3_1h_gt_45) | (rsi_3_1d_gt_50) | (stochrsi_k_1h_lt_60) | (stochrsi_k_4h_lt_70))
+            # 15m & 1h down move, 15m high, 1d downtrend
+            & ((rsi_3_15m_gt_35) | (rsi_3_1h_gt_45) | (aroonu_14_15m_lt_60) | (roc_9_1d_gt_neg_10))
             # 15m & 1h down move, 15m & 1d high
             & ((rsi_3_15m_gt_35) | (rsi_3_1h_gt_45) | (aroonu_14_15m_lt_70) | (aroonu_14_1d_lt_90))
             # 15m & 1h down move, 1h still high, 1d high
@@ -28204,7 +28208,7 @@ class NostalgiaForInfinityX8(IStrategy):
             # 1h & 4h up move, 1d still not high enough
             & ((rsi_3_1h_lt_90) | (rsi_3_4h_lt_90) | (stochrsi_k_1d_gt_70))
             # 1h up move, 4h low, 1d overbought
-            & ((rsi_3_1h_lt_90) | (aroonu_14_4h_gt_20) | (roc_9_1d_lt_50))
+            & ((rsi_3_1h_lt_90) | (aroonu_14_4h_gt_30) | (roc_9_1d_lt_20))
             # 1h up move, 1h still low, 1d uptrend
             & ((rsi_3_1h_lt_90) | (stochrsi_k_1h_gt_60) | roc_9_1d_lt_50)
             # 1h up move, 1h still not high enough, 1d low
