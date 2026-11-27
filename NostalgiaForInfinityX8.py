@@ -70,7 +70,7 @@ class NostalgiaForInfinityX8(IStrategy):
   INTERFACE_VERSION = 3
 
   def version(self) -> str:
-    return "v18.0.322"
+    return "v18.0.327"
 
   stoploss = -0.99
 
@@ -736,6 +736,7 @@ class NostalgiaForInfinityX8(IStrategy):
   system_v4_grind_entry_before_derisk_max_stake = 1.0  # ratio of first entry
   system_v4_grind_entry_before_derisk_distance = 0.02  # unleveraged price move from the grind average
   system_v4_grind_derisk_mode = "all"
+  system_v4_grind_exit_mode = "all"
 
   # Bad-trade exits. Enable for new v4 trades without changing older open trades.
   system_v4_bad_trade_exit_enable = True
@@ -1294,6 +1295,9 @@ class NostalgiaForInfinityX8(IStrategy):
       "keep_latest",
     ):
       raise ValueError("system_v4_grind_derisk_mode must be all, oldest, or keep_latest.")
+
+    if not isinstance(self.system_v4_grind_exit_mode, str) or self.system_v4_grind_exit_mode not in ("all", "latest"):
+      raise ValueError("system_v4_grind_exit_mode must be all or latest.")
 
     if self.target_profit_cache is None:
       bot_name = ""
@@ -6688,10 +6692,12 @@ class NostalgiaForInfinityX8(IStrategy):
     aroond_14_15m_lt_70 = aroond_14_15m < 70.0
     aroond_14_15m_lt_80 = aroond_14_15m < 80.0
     aroond_14_15m_lt_100 = aroond_14_15m < 100.0
+    aroond_14_1h_gt_0 = aroond_14_1h > 0.0
     aroond_14_1h_lt_25 = aroond_14_1h < 25.0
     aroond_14_1h_lt_50 = aroond_14_1h < 50.0
     aroond_14_1h_lt_70 = aroond_14_1h < 70.0
     aroond_14_1h_lt_100 = aroond_14_1h < 100.0
+    aroond_14_4h_gt_0 = aroond_14_4h > 0.0
     aroond_14_4h_lt_25 = aroond_14_4h < 25.0
     aroond_14_4h_lt_40 = aroond_14_4h < 40.0
     aroond_14_4h_lt_50 = aroond_14_4h < 50.0
@@ -6699,6 +6705,7 @@ class NostalgiaForInfinityX8(IStrategy):
     aroond_14_4h_lt_80 = aroond_14_4h < 80.0
     aroond_14_4h_lt_85 = aroond_14_4h < 85.0
     aroond_14_4h_lt_100 = aroond_14_4h < 100.0
+    aroond_14_1d_gt_0 = aroond_14_1d > 0.0
     aroond_14_1d_lt_90 = aroond_14_1d < 90.0
     aroond_14_1d_lt_100 = aroond_14_1d < 100.0
     aroonu_14_gt_75 = aroonu_14 > 75.0
@@ -7881,6 +7888,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_20) | (aroonu_14_15m_lt_30))
             # 15m & 1h down move, 4h overbought
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_20) | (roc_9_4h_lt_50))
+            # 15m & 1h down move, 4h high & overbought
+            & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_25) | (aroonu_14_4h_lt_60) | (roc_9_4h_lt_10))
             # 15m & 1h down move, 15m high
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_25) | (stochrsi_k_15m_lt_80))
             # 15m & 1h down move, 4h high
@@ -7903,6 +7912,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_45) | (aroonu_14_4h_lt_80) | (aroonu_14_1d_lt_100) | (roc_9_1d_lt_30))
             # 15m & 1d down move, 1h & 1d high
             & ((rsi_3_15m_gt_20) | (rsi_3_1d_gt_20) | (aroonu_14_1h_lt_60) | (aroonu_14_1d_lt_60))
+            # 15m & 1d down move, 1h still high
+            & ((rsi_3_15m_gt_20) | (rsi_3_1d_gt_20) | (stochrsi_k_1h_lt_40))
             # 15m down move, 1h & 4h high
             & ((rsi_3_15m_gt_20) | (aroonu_14_1h_lt_80) | (aroonu_14_4h_lt_80))
             # 15m down move, 1h & 1d high
@@ -12484,12 +12495,12 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_15) | (rsi_3_1d_gt_40) | (stochrsi_k_1d_lt_70))
             # 15m down move, 15m high
             & ((rsi_3_15m_gt_15) | (aroonu_14_15m_lt_70))
-            # 15m & 1h & 4h down move, 4h high, 1d downtrend
-            & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_20) | (rsi_3_4h_gt_40) | (stochrsi_k_4h_lt_40) | (roc_9_1d_gt_neg_30))
             # 15m & 4h down move, 4h high
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_25) | (aroonu_14_4h_lt_70))
             # 15m down move, 1h & 4h high
             & ((rsi_3_15m_gt_20) | (aroonu_14_1h_lt_70) | (aroonu_14_4h_lt_100))
+            # 15m & 1h & 4h down move, 4h high, 1d downtrend
+            & ((rsi_3_15m_gt_25) | (rsi_3_1h_gt_25) | (rsi_3_4h_gt_40) | (stochrsi_k_4h_lt_40) | (roc_9_1d_gt_neg_30))
             # 15m & 1h down move, 1h still high, 1d overbought
             & ((rsi_3_15m_gt_25) | (rsi_3_1h_gt_30) | (aroonu_14_1h_lt_50) | (roc_9_1d_lt_40))
             # 15m & 1h & 4h down move, 15m still high
@@ -32345,6 +32356,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_35) | (rsi_3_4h_gt_35) | (aroonu_14_4h_gt_10) | (roc_9_1d_gt_neg_10))
             # 15m & 1h down move, 1h low, 4h downtrend not confirmed
             & ((rsi_3_15m_gt_20) | (rsi_3_1h_gt_35) | (aroonu_14_1h_gt_0) | (stochrsi_k_4h_lt_60))
+            # 15m & 4h & 1d down move, 4h low
+            & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (rsi_3_1d_gt_25) | (stochrsi_k_4h_gt_20))
             # 15m & 4h & 1d down move, 1h low, 1d low
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_20) | (rsi_3_1d_gt_35) | (aroonu_14_1h_gt_20) | (stochrsi_k_1d_gt_10))
             # 15m & 4h down move, 1h downtrend not confirmed, 4h downtrend not confirmed
@@ -32387,6 +32400,8 @@ class NostalgiaForInfinityX8(IStrategy):
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_35) | (rsi_3_1d_gt_45) | (aroonu_14_1h_gt_30) | (stochrsi_k_4h_gt_10))
             # 15m & 4h down move, 1h & 4h low
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_35) | (aroonu_14_1h_gt_10) | (aroonu_14_4h_gt_20))
+            # 15m & 4h down move, 1d low, 4h low
+            & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_35) | (aroonu_14_1d_gt_0) | (stochrsi_k_4h_gt_20))
             # 15m & 4h & 1d down move, 1h & 4h low
             & ((rsi_3_15m_gt_20) | (rsi_3_4h_gt_40) | (rsi_3_1d_gt_40) | (aroonu_14_1h_gt_0) | (aroonu_14_4h_gt_20))
             # 15m & 4h & 1d down move, 1h & 1d low
@@ -46885,8 +46900,18 @@ class NostalgiaForInfinityX8(IStrategy):
         else:
           return buy_amount
 
+    grind_1_exit_orders = grind_1_orders
+    grind_1_exit_amount = grind_1_total_amount
+    grind_1_exit_profit_stake = grind_1_current_grind_profit_stake
+    grind_1_exit_profit_rate = grind_1_current_grind_profit_rate
+    if self.system_v4_grind_exit_mode == "latest" and grind_1_sub_grind_count > 1:
+      grind_1_exit_orders = grind_1_orders[:1]
+      grind_1_exit_amount = grind_1_orders[0].safe_filled
+      grind_1_exit_open_rate = grind_1_orders[0].safe_price
+      grind_1_exit_profit_stake = grind_1_exit_amount * (exit_rate * (1 - trade_fee_close) - grind_1_exit_open_rate)
+      grind_1_exit_profit_rate = (exit_rate - grind_1_exit_open_rate) / grind_1_exit_open_rate
     if grind_1_sub_grind_count > 0 and not (
-      grind_1_current_grind_profit_rate < (grind_1_profit_threshold + fee_open_rate + fee_close_rate)
+      grind_1_exit_profit_rate < (grind_1_profit_threshold + fee_open_rate + fee_close_rate)
     ):
       load_candles()
       ft_exit_amount, tag = self.long_grind_exit_v4(
@@ -46905,11 +46930,11 @@ class NostalgiaForInfinityX8(IStrategy):
         fee_close_rate,
         grind_1_cluster_max_profit_stake,
         grind_1_cluster_max_profit_rate,
-        grind_1_current_grind_profit_stake,
-        grind_1_current_grind_profit_rate,
-        grind_1_total_amount,
+        grind_1_exit_profit_stake,
+        grind_1_exit_profit_rate,
+        grind_1_exit_amount,
         grind_1_profit_threshold,
-        grind_1_orders,
+        grind_1_exit_orders,
         trade,
       )
       if ft_exit_amount is not None and tag is not None:
@@ -47023,8 +47048,18 @@ class NostalgiaForInfinityX8(IStrategy):
         else:
           return buy_amount
 
+    grind_2_exit_orders = grind_2_orders
+    grind_2_exit_amount = grind_2_total_amount
+    grind_2_exit_profit_stake = grind_2_current_grind_profit_stake
+    grind_2_exit_profit_rate = grind_2_current_grind_profit_rate
+    if self.system_v4_grind_exit_mode == "latest" and grind_2_sub_grind_count > 1:
+      grind_2_exit_orders = grind_2_orders[:1]
+      grind_2_exit_amount = grind_2_orders[0].safe_filled
+      grind_2_exit_open_rate = grind_2_orders[0].safe_price
+      grind_2_exit_profit_stake = grind_2_exit_amount * (exit_rate * (1 - trade_fee_close) - grind_2_exit_open_rate)
+      grind_2_exit_profit_rate = (exit_rate - grind_2_exit_open_rate) / grind_2_exit_open_rate
     if grind_2_sub_grind_count > 0 and not (
-      grind_2_current_grind_profit_rate < (grind_2_profit_threshold + fee_open_rate + fee_close_rate)
+      grind_2_exit_profit_rate < (grind_2_profit_threshold + fee_open_rate + fee_close_rate)
     ):
       load_candles()
       ft_exit_amount, tag = self.long_grind_exit_v4(
@@ -47043,11 +47078,11 @@ class NostalgiaForInfinityX8(IStrategy):
         fee_close_rate,
         grind_2_cluster_max_profit_stake,
         grind_2_cluster_max_profit_rate,
-        grind_2_current_grind_profit_stake,
-        grind_2_current_grind_profit_rate,
-        grind_2_total_amount,
+        grind_2_exit_profit_stake,
+        grind_2_exit_profit_rate,
+        grind_2_exit_amount,
         grind_2_profit_threshold,
-        grind_2_orders,
+        grind_2_exit_orders,
         trade,
       )
       if ft_exit_amount is not None and tag is not None:
@@ -47161,8 +47196,18 @@ class NostalgiaForInfinityX8(IStrategy):
         else:
           return buy_amount
 
+    grind_3_exit_orders = grind_3_orders
+    grind_3_exit_amount = grind_3_total_amount
+    grind_3_exit_profit_stake = grind_3_current_grind_profit_stake
+    grind_3_exit_profit_rate = grind_3_current_grind_profit_rate
+    if self.system_v4_grind_exit_mode == "latest" and grind_3_sub_grind_count > 1:
+      grind_3_exit_orders = grind_3_orders[:1]
+      grind_3_exit_amount = grind_3_orders[0].safe_filled
+      grind_3_exit_open_rate = grind_3_orders[0].safe_price
+      grind_3_exit_profit_stake = grind_3_exit_amount * (exit_rate * (1 - trade_fee_close) - grind_3_exit_open_rate)
+      grind_3_exit_profit_rate = (exit_rate - grind_3_exit_open_rate) / grind_3_exit_open_rate
     if grind_3_sub_grind_count > 0 and not (
-      grind_3_current_grind_profit_rate < (grind_3_profit_threshold + fee_open_rate + fee_close_rate)
+      grind_3_exit_profit_rate < (grind_3_profit_threshold + fee_open_rate + fee_close_rate)
     ):
       load_candles()
       ft_exit_amount, tag = self.long_grind_exit_v4(
@@ -47181,11 +47226,11 @@ class NostalgiaForInfinityX8(IStrategy):
         fee_close_rate,
         grind_3_cluster_max_profit_stake,
         grind_3_cluster_max_profit_rate,
-        grind_3_current_grind_profit_stake,
-        grind_3_current_grind_profit_rate,
-        grind_3_total_amount,
+        grind_3_exit_profit_stake,
+        grind_3_exit_profit_rate,
+        grind_3_exit_amount,
         grind_3_profit_threshold,
-        grind_3_orders,
+        grind_3_exit_orders,
         trade,
       )
       if ft_exit_amount is not None and tag is not None:
@@ -47301,8 +47346,18 @@ class NostalgiaForInfinityX8(IStrategy):
         else:
           return buy_amount
 
+    grind_4_exit_orders = grind_4_orders
+    grind_4_exit_amount = grind_4_total_amount
+    grind_4_exit_profit_stake = grind_4_current_grind_profit_stake
+    grind_4_exit_profit_rate = grind_4_current_grind_profit_rate
+    if self.system_v4_grind_exit_mode == "latest" and grind_4_sub_grind_count > 1:
+      grind_4_exit_orders = grind_4_orders[:1]
+      grind_4_exit_amount = grind_4_orders[0].safe_filled
+      grind_4_exit_open_rate = grind_4_orders[0].safe_price
+      grind_4_exit_profit_stake = grind_4_exit_amount * (exit_rate * (1 - trade_fee_close) - grind_4_exit_open_rate)
+      grind_4_exit_profit_rate = (exit_rate - grind_4_exit_open_rate) / grind_4_exit_open_rate
     if grind_4_sub_grind_count > 0 and not (
-      grind_4_current_grind_profit_rate < (grind_4_profit_threshold + fee_open_rate + fee_close_rate)
+      grind_4_exit_profit_rate < (grind_4_profit_threshold + fee_open_rate + fee_close_rate)
     ):
       load_candles()
       ft_exit_amount, tag = self.long_grind_exit_v4(
@@ -47321,11 +47376,11 @@ class NostalgiaForInfinityX8(IStrategy):
         fee_close_rate,
         grind_4_cluster_max_profit_stake,
         grind_4_cluster_max_profit_rate,
-        grind_4_current_grind_profit_stake,
-        grind_4_current_grind_profit_rate,
-        grind_4_total_amount,
+        grind_4_exit_profit_stake,
+        grind_4_exit_profit_rate,
+        grind_4_exit_amount,
         grind_4_profit_threshold,
-        grind_4_orders,
+        grind_4_exit_orders,
         trade,
       )
       if ft_exit_amount is not None and tag is not None:
@@ -47443,8 +47498,18 @@ class NostalgiaForInfinityX8(IStrategy):
         else:
           return buy_amount
 
+    grind_5_exit_orders = grind_5_orders
+    grind_5_exit_amount = grind_5_total_amount
+    grind_5_exit_profit_stake = grind_5_current_grind_profit_stake
+    grind_5_exit_profit_rate = grind_5_current_grind_profit_rate
+    if self.system_v4_grind_exit_mode == "latest" and grind_5_sub_grind_count > 1:
+      grind_5_exit_orders = grind_5_orders[:1]
+      grind_5_exit_amount = grind_5_orders[0].safe_filled
+      grind_5_exit_open_rate = grind_5_orders[0].safe_price
+      grind_5_exit_profit_stake = grind_5_exit_amount * (exit_rate * (1 - trade_fee_close) - grind_5_exit_open_rate)
+      grind_5_exit_profit_rate = (exit_rate - grind_5_exit_open_rate) / grind_5_exit_open_rate
     if grind_5_sub_grind_count > 0 and not (
-      grind_5_current_grind_profit_rate < (grind_5_profit_threshold + fee_open_rate + fee_close_rate)
+      grind_5_exit_profit_rate < (grind_5_profit_threshold + fee_open_rate + fee_close_rate)
     ):
       load_candles()
       ft_exit_amount, tag = self.long_grind_exit_v4(
@@ -47463,11 +47528,11 @@ class NostalgiaForInfinityX8(IStrategy):
         fee_close_rate,
         grind_5_cluster_max_profit_stake,
         grind_5_cluster_max_profit_rate,
-        grind_5_current_grind_profit_stake,
-        grind_5_current_grind_profit_rate,
-        grind_5_total_amount,
+        grind_5_exit_profit_stake,
+        grind_5_exit_profit_rate,
+        grind_5_exit_amount,
         grind_5_profit_threshold,
-        grind_5_orders,
+        grind_5_exit_orders,
         trade,
       )
       if ft_exit_amount is not None and tag is not None:
